@@ -1,4 +1,4 @@
-/* Mailtid home page — server-rendered, no framework. */
+/* Mailtid — polished look. */
 
 :root {
   --bg: #fafaf7;
@@ -14,6 +14,7 @@
   --neutral-border: #d0d0d0;
   --card-bg: #ffffff;
   --card-border: #e2e2e2;
+  --skeleton: #e8e8e8;
   --radius: 6px;
   --gap: 12px;
 }
@@ -28,12 +29,43 @@ body {
   max-width: 720px;
   margin: 0 auto;
   padding: 16px;
+  -webkit-font-smoothing: antialiased;
 }
 
 header h1 { margin: 0 0 4px 0; font-size: 28px; }
 .nav { display: flex; gap: 12px; align-items: baseline; }
 .nav a { color: var(--accent); font-size: 14px; }
 .tagline { color: var(--muted); margin: 0 0 24px 0; }
+
+/* ---- Banners ---- */
+.banner {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.banner a {
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.banner-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+.banner-warning a { color: #856404; }
+.banner-info {
+  background: #d8e2dc;
+  border: 1px solid #2d6a4f;
+  color: #1f1f1f;
+}
+.banner-info a { color: #2d6a4f; }
 
 h2 { font-size: 18px; margin: 24px 0 8px 0; }
 .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px 0; }
@@ -49,6 +81,7 @@ h2 { font-size: 18px; margin: 24px 0 8px 0; }
   font-size: 14px;
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
+  user-select: none;
 }
 .chip.neutral { /* default */ }
 .chip.include {
@@ -215,7 +248,90 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .status { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 .empty { color: var(--muted); }
 
+/* ---- Error block / retry ---- */
+.error-block {
+  text-align: center;
+  padding: 24px 16px;
+}
+.error-block p {
+  margin: 0 0 12px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.error-block button {
+  margin-top: 4px;
+}
+
+/* ---- Skeleton loading ---- */
+.meal.skeleton {
+  padding: 14px 16px;
+}
+.skel-line {
+  background: var(--skeleton);
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.skel-title {
+  height: 18px;
+  width: 55%;
+  margin-bottom: 10px;
+}
+.skel-desc {
+  height: 14px;
+  margin-bottom: 8px;
+}
+.skel-short {
+  width: 40%;
+}
+.skel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.skel-btn {
+  display: inline-block;
+  width: 80px;
+  height: 28px;
+  background: var(--skeleton);
+  border-radius: var(--radius);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ---- Mobile-friendly ---- */
 @media (max-width: 480px) {
-  body { padding: 12px; }
-  header h1 { font-size: 24px; }
+  body {
+    padding: 12px;
+  }
+  header h1 {
+    font-size: 22px;
+  }
+  .nav {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .nav-links {
+    gap: 8px;
+  }
+  .chips {
+    gap: 6px;
+  }
+  .chip {
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+  .meal {
+    padding: 12px 14px;
+  }
+  .banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .banner a {
+    margin-left: 0;
+  }
 }

@@ -2,15 +2,15 @@
  * Mailtid front-end.
  *
  * Tiny, no-framework script that wires the server-rendered HTML
- * to a few endpoints. Three responsibilities:
+ * to a few endpoints. Responsibilities:
  *
  *  1. Cycle a chip's filter state on click (neutral → include →
  *     exclude → neutral) and PUT the new state to /api/filter.
  *  2. Submit the custom-mandatory form to /api/custom-ingredients
  *     and re-render the custom-chip list when the user clicks
  *     "Fjern" (×).
- *  3. Render the 5 short-form Meal Inspirations returned by
- *     /api/inspiration when the "Vis 5 nye" button is clicked.
+ *  3. Render the 5 short-form Meal Inspirations with a loading
+ *     skeleton while fetching, and a retry button on error.
  *
  * The page itself is server-rendered, so a no-JS user can still
  * see the saved state; this script only adds interactivity.
@@ -57,6 +57,28 @@ function escapeHtml(raw) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * Render 5 skeleton cards while the LLM call is in flight.
+ */
+function renderSkeleton() {
+  const container = document.getElementById("meals");
+  if (!container) return;
+  container.innerHTML = [1, 2, 3, 4, 5]
+    .map(
+      () =>
+        `<article class="meal skeleton">` +
+        `<div class="skel-line skel-title"></div>` +
+        `<div class="skel-line skel-desc"></div>` +
+        `<div class="skel-line skel-desc skel-short"></div>` +
+        `<div class="skel-actions">` +
+        `<span class="skel-btn"></span>` +
+        `<span class="skel-btn"></span>` +
+        `</div>` +
+        `</article>`,
+    )
+    .join("");
 }
 
 function renderMeals(meals) {
@@ -254,27 +276,55 @@ function reloadPage() {
   window.location.reload();
 }
 
+/**
+ * Refresh: show skeleton, fetch inspiration, render meals or
+ * show a retry button on error.
+ */
 function wireRefresh() {
   const btn = document.getElementById("refresh");
   if (!btn) return;
   btn.addEventListener("click", async () => {
-    setStatus("Henter forslag...");
+    renderSkeleton();
+    setStatus("");
     btn.disabled = true;
     try {
       const res = await fetch("/api/inspiration", { method: "POST" });
-      if (!res.ok) {
-        setStatus("Kunne ikke få forslag — prøv igen.");
-        return;
+      if (res.ok) {
+        const body = await res.json();
+        renderMeals(body.meals || []);
+        const count = body.meals ? body.meals.length : 0;
+        setStatus(count > 0 ? "" : "Ingen forslag.");
+      } else {
+        const body = await res.json();
+        const msg = body.error || "Kunne ikke få forslag — prøv igen";
+        showError(msg);
       }
-      const body = await res.json();
-      renderMeals(body.meals || []);
-      setStatus(body.meals && body.meals.length > 0 ? "" : "Ingen forslag.");
     } catch (err) {
-      setStatus("Kunne ikke få forslag — prøv igen.");
+      showError("Kunne ikke få forslag — prøv igen");
     } finally {
       btn.disabled = false;
     }
   });
+}
+
+/**
+ * Show an error message with a retry button in the meals area.
+ */
+function showError(message) {
+  const container = document.getElementById("meals");
+  if (!container) return;
+  container.innerHTML =
+    `<div class="error-block">` +
+    `<p>${escapeHtml(message)}</p>` +
+    `<button id="retry-btn" class="primary" type="button">Prøv igen</button>` +
+    `</div>`;
+  const retry = document.getElementById("retry-btn");
+  if (retry) {
+    retry.addEventListener("click", () => {
+      const refresh = document.getElementById("refresh");
+      if (refresh) refresh.click();
+    });
+  }
 }
 
 function init() {

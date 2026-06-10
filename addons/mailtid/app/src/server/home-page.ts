@@ -1,6 +1,7 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
 import type { FilterState } from "../db/filter-state.js";
 import type { CustomIngredient } from "../db/custom-ingredients.js";
+import type { UserProfile } from "../db/profile.js";
 import { escapeHtml, danishMonthName } from "./html.js";
 
 /**
@@ -16,6 +17,10 @@ export interface HomePageData {
   filter: FilterState;
   /** The user's saved custom mandatory ingredients. */
   custom: readonly CustomIngredient[];
+  /** The user's dietary profile, or null if not set. */
+  profile: UserProfile | null;
+  /** Whether the OpenCode API key is configured. */
+  hasApiKey: boolean;
 }
 
 /**
@@ -57,6 +62,22 @@ export function renderHomePage(data: HomePageData): string {
     )
     .join("");
 
+  // Missing-API-key banner: shown when the key is not set.
+  const missingKeyHtml = data.hasApiKey
+    ? ""
+    : `<div class="banner banner-warning" role="alert">
+  ⚠️ Indtast din OpenCode API-nøgle i add-on-indstillingerne.
+  <a href="/indstillinger">Gå til indstillinger</a>
+</div>`;
+
+  // First-run banner: shown when the profile is empty.
+  const firstRunHtml = data.profile
+    ? ""
+    : `<div class="banner banner-info" role="alert">
+  👋 Velkommen — fortæl os lidt om dig for at få bedre forslag.
+  <a href="/indstillinger">Gå til indstillinger</a>
+</div>`;
+
   const monthName = danishMonthName(data.month);
 
   return `<!doctype html>
@@ -78,6 +99,9 @@ export function renderHomePage(data: HomePageData): string {
     </div>
     <p class="tagline">Forslag til aftensmad — dansk, i sæson, til dig.</p>
   </header>
+
+  ${firstRunHtml}
+  ${missingKeyHtml}
 
   <section id="filters" aria-label="Filtrer på råvarer i sæson">
     <h2>Råvarer i sæson — ${escapeHtml(monthName)}</h2>

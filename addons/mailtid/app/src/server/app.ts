@@ -52,6 +52,12 @@ export interface AppDeps {
   /** Read/write access to cooked history. */
   cookedHistory: CookedHistoryRepository;
   /**
+   * Whether the OpenCode API key is set. When false, the home page
+   * shows a missing-key message and /api/inspiration returns 503
+   * instead of attempting the LLM call.
+   */
+  hasApiKey: boolean;
+  /**
    * Refresh the cached model list from the OpenCode Go API.
    * No-op in tests; wired to the real fetch in production.
    * Returns a status message string.
@@ -84,8 +90,9 @@ export function createApp(deps: AppDeps): Hono {
     const inSeason = deps.seasonality.findInSeasonForMonth(month);
     const filter = deps.filterState.find();
     const custom = deps.customIngredients.list();
+    const profile = deps.profile.find();
     return c.html(
-      renderHomePage({ month, inSeason, filter, custom }),
+      renderHomePage({ month, inSeason, filter, custom, profile, hasApiKey: deps.hasApiKey }),
     );
   });
 
@@ -164,14 +171,22 @@ export function createApp(deps: AppDeps): Hono {
    * for the current month, constrained to the in-season Danish
    * ingredient list. The LLM does the heavy lifting; the handler
    * is a thin wrapper that maps parse / network errors to a 502.
+   * Returns 503 when no API key is configured.
    */
   app.post("/api/inspiration", async (c) => {
+    if (!deps.hasApiKey) {
+      warnLog("inspiration", "OpenCode API key not set");
+      return c.json({
+        error: "Indtast din OpenCode API-nøgle i add-on-indstillingerne",
+      }, 503);
+    }
     try {
       const meals = await deps.inspiration.shortForm();
       return c.json({ meals });
     } catch (err) {
-      const message = (err as Error).message;
-      return c.json({ error: message }, 502);
+      const underlying = (err as Error).message;
+      warnLog("inspiration", underlying);
+      return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
     }
   });
 
@@ -211,8 +226,9 @@ export function createApp(deps: AppDeps): Hono {
       });
       return c.json(recipe);
     } catch (err) {
-      const message = (err as Error).message;
-      return c.json({ error: message }, 502);
+      const underlying = (err as Error).message;
+      warnLog("recipe", underlying);
+      return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
     }
   });
 
@@ -472,6 +488,14 @@ export function createApp(deps: AppDeps): Hono {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+/**
+ * Log an error or warning with the `mailtid:` prefix so log
+ * messages are easy to find in the container output.
+ */
+function warnLog(context: string, detail: string): void {
+  console.warn(`mailtid: ${context}: ${detail}`);
 }
 
 export type App = ReturnType<typeof createApp>;

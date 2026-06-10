@@ -86,6 +86,7 @@ export function buildAppDeps(
     settings,
     favourites,
     cookedHistory,
+    hasApiKey: config.opencodeApiKey.length > 0,
     inspiration,
     recipe,
     monthProvider,

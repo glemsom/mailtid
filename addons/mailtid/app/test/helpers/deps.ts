@@ -38,6 +38,8 @@ async function stubRefreshModelCache(): Promise<string> {
 export function makeTestDeps(opts: {
   cannedResponse: string;
   month: number;
+  /** When false, the app behaves as if no OpenCode API key is set. Defaults to true. */
+  hasApiKey?: boolean;
 }): TestDeps {
   const db = new Database(":memory:");
   runMigrations(db);
@@ -72,7 +74,8 @@ export function makeTestDeps(opts: {
       inspiration,
       recipe,
       monthProvider: () => opts.month,
-      refreshModelCache: stubRefreshModelCache,
+      hasApiKey: opts.hasApiKey !== false,
+    refreshModelCache: stubRefreshModelCache,
     },
     llm,
     db,

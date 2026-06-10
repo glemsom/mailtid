@@ -131,4 +131,50 @@ describe("GET /static/:filename", () => {
     const res = await app.request("http://localhost/static/..%2Fpackage.json");
     expect(res.status).toBe(403);
   });
+
+  test("shows first-run banner when profile is empty", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/");
+    const html = await res.text();
+
+    expect(html).toContain("Velkommen");
+    expect(html).toContain("fortæl os lidt om dig");
+  });
+
+  test("hides first-run banner once profile is set", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
+    deps.profile.save({
+      dietaryPattern: "omnivore",
+      allergies: [],
+      dislikes: "",
+    });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/");
+    const html = await res.text();
+
+    expect(html).not.toContain("Velkommen — fortæl os lidt om dig");
+  });
+
+  test("shows missing-API-key banner when key is empty", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6, hasApiKey: false });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/");
+    const html = await res.text();
+
+    expect(html).toContain("OpenCode API-nøgle");
+  });
+
+  test("hides missing-API-key banner when key is set", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6, hasApiKey: true });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/");
+    const html = await res.text();
+
+    expect(html).not.toContain("OpenCode API-nøgle");
+  });
 });
