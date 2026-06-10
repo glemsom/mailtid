@@ -1,8 +1,10 @@
 import { createApp } from "./app.js";
 import { loadRuntimeConfig, startServer } from "./bootstrap.js";
+import { buildAppDeps } from "./deps.js";
 
 const config = loadRuntimeConfig();
-const app = createApp();
+const deps = buildAppDeps(config);
+const app = createApp(deps);
 
 startServer(app, config)
   .then((server) => {

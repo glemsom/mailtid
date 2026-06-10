@@ -13,6 +13,7 @@ import {
   loadConfigFromOptionsJson,
   type MailtidConfig,
 } from "../../src/server/config.js";
+import { makeTestDeps } from "../helpers/deps.js";
 
 const FIXED_CONFIG: MailtidConfig = {
   opencodeApiKey: "",
@@ -20,6 +21,8 @@ const FIXED_CONFIG: MailtidConfig = {
   port: 0, // OS-assigned
   defaultLanguage: "da",
 };
+
+const CANNED = JSON.stringify({ meals: [] });
 
 let running: RunningServer | undefined;
 
@@ -32,7 +35,8 @@ afterEach(async () => {
 
 describe("HTTP server", () => {
   test("binds to the configured port and serves the home greeting", async () => {
-    const app = createApp();
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
+    const app = createApp(deps);
     running = await startServer(app, FIXED_CONFIG);
 
     const res = await fetch(`http://127.0.0.1:${running.port}/`);

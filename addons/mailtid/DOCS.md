@@ -28,4 +28,6 @@ din husstands profil og hvad du har lavet de sidste 14 dage.
 
 - `/` viser 5 korte måltidsforslag
 - `/api/inspiration` (POST) returnerer 5 forslag som JSON
+- `/api/seasonality?month=N` (GET) returnerer årstidens råvarer for
+  måned `N` (1-12) som JSON
 - `/admin/seasonality` lader dig rette sæsondataene
