@@ -38,6 +38,44 @@ describe("refreshModelCache", () => {
     }
   });
 
+  test("uses id as displayName when the live API returns no display_name (regression: all-18-show-as-opencode)", async () => {
+    // Regression: the live OpenCode Go /models endpoint returns entries
+    // with only `id`, `object`, `created`, and `owned_by="opencode"`.
+    // The previous fallback `display_name ?? owned_by ?? id` therefore
+    // produced "opencode" for every model. The `id` is the only
+    // per-model-unique field, so it must be the primary display name.
+    const settings = makeSettings();
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = (() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: [
+                { id: "minimax-m3",  object: "model", created: 1, owned_by: "opencode" },
+                { id: "kimi-k2.6",  object: "model", created: 1, owned_by: "opencode" },
+                { id: "glm-5.1",    object: "model", created: 1, owned_by: "opencode" },
+              ],
+            }),
+            { status: 200 },
+          ),
+        )) as typeof globalThis.fetch;
+      await refreshModelCache("sk-test-key", settings);
+      const cached = settings.listModels();
+      expect(cached).toHaveLength(3);
+      const names = cached.map((m) => m.displayName);
+      // Each display name must match its id (the unique per-model field).
+      expect(cached[0].displayName).toBe(cached[0].modelId);
+      expect(cached[1].displayName).toBe(cached[1].modelId);
+      expect(cached[2].displayName).toBe(cached[2].modelId);
+      // The bug: all 18 collapsed to the single string "opencode".
+      const allSameProviderString = names.every((n) => n === "opencode");
+      expect(allSameProviderString).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("survives model entries with missing endpoint", async () => {
     // Regression: OpenCode Go may return model entries that lack an
     // `endpoint` field (e.g. provider-level metadata entries).

@@ -66,7 +66,13 @@ export async function refreshModelCache(
     .filter((m) => !isAnthropicEndpoint(m.endpoint))
     .map((m) => ({
       modelId: m.id,
-      displayName: m.display_name ?? m.owned_by ?? m.id,
+      // The live API only returns `id` and `owned_by`; `display_name` is
+      // not present. `id` is the per-model-unique field (e.g.
+      // "glm-5.1"), while `owned_by` is the same string for every model
+      // ("opencode") and would collapse all entries to a single label.
+      // Prefer id; fall back to display_name for catalogues that
+      // provide one; only use owned_by as a last resort.
+      displayName: m.id || m.display_name || m.owned_by || "",
       tier: normalizeTier(m.pricing?.tier),
     }));
 
