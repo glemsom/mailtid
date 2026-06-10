@@ -188,9 +188,61 @@ function renderMeals(meals) {
   }
 }
 
+/**
+ * Render a {@link FullRecipe} as the HTML injected into the
+ * `#recipe-display` section when the user taps "Se opskrift".
+ *
+ * IMPORTANT: this function must stay in lockstep with
+ * `src/server/recipe-render.ts` in the TypeScript build pipeline.
+ * The TS version is the single source of truth and is exercised
+ * by `test/server/recipe-render.test.ts`; the script below is a
+ * mirror kept in sync manually because `static/app.js` is shipped
+ * as a standalone browser asset (no bundler).
+ *
+ * Ingredient rows are `{name, amount, unit}` objects produced by
+ * the LLM and validated server-side. Earlier versions of this
+ * script coerced them to a string, which surfaced `[object Object]`
+ * to the user — the exact bug reported on the "Se opskrift"
+ * button.
+ */
+function renderRecipeHtml(recipe) {
+  const title = escapeHtml(recipe.title);
+  const description = escapeHtml(recipe.description);
+  const time = escapeHtml(recipe.timeMinutes);
+  const ingredientList = (recipe.ingredients || [])
+    .map((i) => `<li>${renderIngredientLine(i)}</li>`)
+    .join("");
+  const stepList = (recipe.steps || [])
+    .map((s) => `<li>${escapeHtml(s)}</li>`)
+    .join("");
+  return (
+    `<article class="recipe">` +
+    `<h3>${title}</h3>` +
+    `<p class="recipe-description">${description}</p>` +
+    `<p class="recipe-time">Tid: ${time} min</p>` +
+    `<h4>Ingredienser</h4>` +
+    `<ul>${ingredientList}</ul>` +
+    `<h4>Fremgangsmåde</h4>` +
+    `<ol>${stepList}</ol>` +
+    `<button class="close-recipe">Luk</button>` +
+    `</article>`
+  );
+}
+
+/**
+ * Render one ingredient line as `"<amount> <unit> <name>"` —
+ * the conventional Danish recipe line ("500 g kartofler").
+ * Fields are escaped individually so the LLM cannot inject markup.
+ */
+function renderIngredientLine(ingredient) {
+  const amount = escapeHtml(ingredient.amount);
+  const unit = escapeHtml(ingredient.unit);
+  const name = escapeHtml(ingredient.name);
+  return `${amount} ${unit} ${name}`;
+}
+
 function showRecipe(recipe) {
   // Show the full recipe in a modal or inline below the cards.
-  // For now, render it in the status area as a simple display.
   const container = document.getElementById("recipe-display");
   if (!container) {
     // Create one if it doesn't exist.
@@ -202,15 +254,7 @@ function showRecipe(recipe) {
   }
   const el = document.getElementById("recipe-display");
   if (!el) return;
-  el.innerHTML =
-    `<article class="recipe">` +
-    `<h3>${escapeHtml(recipe.title)}</h3>` +
-    `<h4>Ingredienser</h4>` +
-    `<ul>${(recipe.ingredients || []).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>` +
-    `<h4>Fremgangsmåde</h4>` +
-    `<ol>${(recipe.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>` +
-    `<button class="close-recipe">Luk</button>` +
-    `</article>`;
+  el.innerHTML = renderRecipeHtml(recipe);
   el.querySelector(".close-recipe")?.addEventListener("click", () => {
     el.innerHTML = "";
   });

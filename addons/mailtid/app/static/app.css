@@ -232,6 +232,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .recipe h4 { margin: 12px 0 6px 0; font-size: 15px; color: var(--accent); }
 .recipe ul, .recipe ol { margin: 0 0 12px 0; padding-left: 20px; }
 .recipe li { margin-bottom: 4px; }
+.recipe-description { margin: 0 0 8px 0; color: var(--muted); }
+.recipe-time { margin: 0 0 8px 0; font-size: 13px; color: var(--accent); font-weight: 600; }
 
 .close-recipe {
   background: var(--muted);

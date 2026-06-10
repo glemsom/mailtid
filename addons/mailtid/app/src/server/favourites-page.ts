@@ -1,5 +1,6 @@
 import type { FavouriteMeal } from "../db/favourites.js";
 import { escapeHtml } from "./html.js";
+import { renderRecipeHtml } from "./recipe-render.js";
 
 export interface FavouritesPageData {
   favourites: readonly FavouriteMeal[];
@@ -9,6 +10,14 @@ export interface FavouritesPageData {
  * Render the Mailtid "Favouritter" page as a full HTML document.
  * Server-rendered so saved meals appear immediately without a JS
  * round-trip. Shows an empty-state message when no favourites exist.
+ *
+ * The recipe-rendering script below mirrors the logic in
+ * {@link renderRecipeHtml} (`src/server/recipe-render.ts`). The
+ * TS module is the single source of truth and is exercised by
+ * `test/server/recipe-render.test.ts`; the inline `<script>` here
+ * is a deliberate copy because the page is rendered server-side
+ * with no bundler. Any drift between the two is a bug — keep them
+ * in lockstep.
  */
 export function renderFavouritesPage(data: FavouritesPageData): string {
   const hasFavourites = data.favourites.length > 0;
@@ -57,19 +66,60 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
   <section id="recipe-display" aria-label="Fuld opskrift"></section>
 
   <script>
+    // ---- BEGIN mirror of src/server/recipe-render.ts ----
+    // Keep in lockstep with the TS module: see
+    // src/server/recipe-render.ts (renderRecipeHtml, renderIngredientLine,
+    // escapeHtml) and test/server/recipe-render.test.ts for the contract.
     function escapeHtml(raw) {
-      return raw
+      return String(raw)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
     }
+    function renderIngredientLine(i) {
+      const amount = escapeHtml(i.amount);
+      const unit = escapeHtml(i.unit);
+      const name = escapeHtml(i.name);
+      return amount + " " + unit + " " + name;
+    }
+    function renderRecipeHtml(recipe) {
+      const title = escapeHtml(recipe.title);
+      const description = escapeHtml(recipe.description);
+      const time = escapeHtml(recipe.timeMinutes);
+      const ingredientList = (recipe.ingredients || [])
+        .map(function (i) { return "<li>" + renderIngredientLine(i) + "</li>"; })
+        .join("");
+      const stepList = (recipe.steps || [])
+        .map(function (s) { return "<li>" + escapeHtml(s) + "</li>"; })
+        .join("");
+      return (
+        '<article class="recipe">' +
+        '<h3>' + title + '</h3>' +
+        '<p class="recipe-description">' + description + '</p>' +
+        '<p class="recipe-time">Tid: ' + time + ' min</p>' +
+        '<h4>Ingredienser</h4>' +
+        '<ul>' + ingredientList + '</ul>' +
+        '<h4>Fremgangsmåde</h4>' +
+        '<ol>' + stepList + '</ol>' +
+        '<button class="close-recipe">Luk</button>' +
+        '</article>'
+      );
+    }
+    // ---- END mirror of src/server/recipe-render.ts ----
+
+    function setStatus(text) {
+      const el = document.getElementById("status");
+      if (el) el.textContent = text;
+    }
+
     for (const btn of document.querySelectorAll(".recipe-btn")) {
       btn.addEventListener("click", async () => {
         const title = btn.getAttribute("data-recipe-title") || "";
         const description = btn.getAttribute("data-recipe-desc") || "";
         btn.disabled = true;
+        const previousLabel = btn.textContent || "Se opskrift";
         btn.textContent = "Henter opskrift...";
         try {
           const res = await fetch("/api/inspiration/recipe", {
@@ -81,24 +131,20 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
             const recipe = await res.json();
             const el = document.getElementById("recipe-display");
             if (el) {
-              el.innerHTML =
-                '<article class="recipe">' +
-                '<h3>' + escapeHtml(recipe.title) + '</h3>' +
-                '<h4>Ingredienser</h4>' +
-                '<ul>' + (recipe.ingredients || []).map(function(i) { return '<li>' + escapeHtml(i) + '</li>'; }).join("") + '</ul>' +
-                '<h4>Fremgangsmåde</h4>' +
-                '<ol>' + (recipe.steps || []).map(function(s) { return '<li>' + escapeHtml(s) + '</li>'; }).join("") + '</ol>' +
-                '<button class="close-recipe">Luk</button>' +
-                '</article>';
-              el.querySelector(".close-recipe")?.addEventListener("click", function() { el.innerHTML = ""; });
+              el.innerHTML = renderRecipeHtml(recipe);
+              el.querySelector(".close-recipe")?.addEventListener("click", function () {
+                el.innerHTML = "";
+              });
               el.scrollIntoView({ behavior: "smooth" });
             }
+          } else {
+            setStatus("Kunne ikke hente opskriften. Prøv igen.");
           }
         } catch (err) {
-          // Silently ignore.
+          setStatus("Kunne ikke hente opskriften. Prøv igen.");
         } finally {
           btn.disabled = false;
-          btn.textContent = "Se opskrift";
+          btn.textContent = previousLabel;
         }
       });
     }
@@ -106,3 +152,4 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
 </body>
 </html>`;
 }
+
