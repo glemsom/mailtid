@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { InspirationService } from "../inspiration/service.js";
+import type { RecipeService } from "../inspiration/recipe-service.js";
 
 /**
  * Dependencies the Hono app needs to serve the API. Injected so
@@ -12,6 +13,8 @@ export interface AppDeps {
   seasonality: SeasonalityRepository;
   /** Business logic for the 5-meal home-screen call. */
   inspiration: InspirationService;
+  /** Business logic for the full-recipe card-tap call. */
+  recipe: RecipeService;
 }
 
 /**
@@ -54,6 +57,47 @@ export function createApp(deps: AppDeps): Hono {
     try {
       const meals = await deps.inspiration.shortForm();
       return c.json({ meals });
+    } catch (err) {
+      const message = (err as Error).message;
+      return c.json({ error: message }, 502);
+    }
+  });
+
+  /**
+   * `POST /api/inspiration/recipe` — expand a single short-form
+   * Meal Inspiration (the one the user just tapped) into a full
+   * Danish recipe via a second, targeted LLM call. Body must be
+   * JSON with `title` and `description`. Returns the full recipe
+   * as JSON.
+   */
+  app.post("/api/inspiration/recipe", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const meal = body as { title?: unknown; description?: unknown };
+    if (
+      typeof meal.title !== "string" ||
+      meal.title.length === 0 ||
+      typeof meal.description !== "string" ||
+      meal.description.length === 0
+    ) {
+      return c.json(
+        { error: "title and description must be non-empty strings" },
+        400,
+      );
+    }
+    try {
+      const recipe = await deps.recipe.fullRecipe({
+        title: meal.title,
+        description: meal.description,
+      });
+      return c.json(recipe);
     } catch (err) {
       const message = (err as Error).message;
       return c.json({ error: message }, 502);

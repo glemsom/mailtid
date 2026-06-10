@@ -4,6 +4,7 @@ import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
+import { RecipeService } from "../../src/inspiration/recipe-service.js";
 import type { AppDeps } from "../../src/server/app.js";
 
 export interface TestDeps {
@@ -18,6 +19,11 @@ export interface TestDeps {
  * in-memory SQLite (per the PRD's "No live DB on disk" rule), a
  * {@link MockLLMClient} returning the supplied canned response, and
  * a fixed month provider so the prompt is deterministic.
+ *
+ * The single `MockLLMClient` is shared between the short-form
+ * inspiration service and the full-recipe service. For tests that
+ * care about which call the LLM sees, the prompt list on the mock
+ * records them in order.
  */
 export function makeTestDeps(opts: {
   cannedResponse: string;
@@ -29,8 +35,9 @@ export function makeTestDeps(opts: {
   const repo = new SeasonalityRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
   const inspiration = new InspirationService(repo, llm, () => opts.month);
+  const recipe = new RecipeService(repo, llm, () => opts.month);
   return {
-    deps: { seasonality: repo, inspiration },
+    deps: { seasonality: repo, inspiration, recipe },
     llm,
     db,
     month: opts.month,

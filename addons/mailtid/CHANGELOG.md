@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Fuld opskrift ved kort-klik: `RecipeService` laver et andet,
+  målrettet LLM-kald for det valgte måltid
+- `POST /api/inspiration/recipe` tager `{title, description}` og
+  returnerer en fuld dansk opskrift (ingredienser, trin, tid)
+- Nyt prompt-modul `addons/mailtid/app/src/llm/recipe-prompt.ts`
+  (samt `extractJsonObject`-helper i `response.ts`, delt med
+  short-form-parseren)
+- Test: prompt-sektioner, parser, service, endpoint, refactor af
+  eksisterende short-form-parser til den delte helper
+
 ## 0.2.0
 
 - Sæsonbestemt database: `seasonality`-tabel, idempotent

@@ -5,6 +5,7 @@ import { runMigrations } from "../db/migrate.js";
 import { importSeasonalitySeed } from "../db/seed.js";
 import { SeasonalityRepository } from "../db/seasonality.js";
 import { InspirationService } from "../inspiration/service.js";
+import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
 import type { LLMClient } from "../llm/client.js";
 import type { AppDeps } from "./app.js";
@@ -59,6 +60,7 @@ export function buildAppDeps(
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
   const inspiration = new InspirationService(repo, llm, monthProvider);
+  const recipe = new RecipeService(repo, llm, monthProvider);
 
-  return { seasonality: repo, inspiration };
+  return { seasonality: repo, inspiration, recipe };
 }

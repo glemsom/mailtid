@@ -1,6 +1,7 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
 import type { LLMClient } from "../llm/client.js";
 import { buildShortFormPrompt } from "../llm/prompt.js";
+import { extractJsonObject } from "../llm/response.js";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 
 /**
@@ -33,22 +34,7 @@ interface ShortFormResponse {
  * to a 502 / generic Danish error.
  */
 export function parseShortFormResponse(raw: string): MealInspiration[] {
-  // Strip ```json ... ``` fences if the model added them.
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const candidate = fenced?.[1] ?? raw;
-  // Find the first { ... } block in case the model added prose.
-  const firstBrace = candidate.indexOf("{");
-  const lastBrace = candidate.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    throw new Error("LLM response contained no JSON object");
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
-  } catch (err) {
-    throw new Error(`LLM response was not valid JSON: ${(err as Error).message}`);
-  }
-  return validateShortFormResponse(parsed);
+  return validateShortFormResponse(extractJsonObject(raw));
 }
 
 function validateShortFormResponse(value: unknown): MealInspiration[] {
