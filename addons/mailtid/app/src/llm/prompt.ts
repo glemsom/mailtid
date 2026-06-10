@@ -94,6 +94,7 @@ export function buildShortFormPrompt(
   inSeason: readonly SeasonalityIngredient[],
   filter: ShortFormFilter = EMPTY_SHORT_FORM_FILTER,
   profile?: UserProfile,
+  cookedTitles?: string[],
 ): string {
   const monthName = danishMonthName(month);
   const ingredientList = inSeason.map((i) => i.nameDa).join(", ");
@@ -135,6 +136,16 @@ export function buildShortFormPrompt(
         "  Undgå disse råvarer, når det er muligt, men de er ikke absolut forbudte.",
       );
     }
+  }
+
+  if (cookedTitles && cookedTitles.length > 0) {
+    const titles = cookedTitles.join(", ");
+    lines.push(
+      "",
+      "# Tidligere lavet (undgå)",
+      `Følgende retter er blevet lavet for nylig: ${titles}.`,
+      "Undgå at foreslå disse retter — brugeren vil have variation.",
+    );
   }
 
   if (

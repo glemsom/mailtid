@@ -7,10 +7,13 @@ import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
+import type { FavouritesRepository } from "../db/favourites.js";
+import type { CookedHistoryRepository } from "../db/cooked-history.js";
 import type { InspirationService } from "../inspiration/service.js";
 import type { RecipeService } from "../inspiration/recipe-service.js";
 import { renderHomePage } from "./home-page.js";
 import { renderSettingsPage } from "./settings-page.js";
+import { renderFavouritesPage } from "./favourites-page.js";
 
 /**
  * Resolve the path to the bundled `static/` directory at build time.
@@ -44,6 +47,10 @@ export interface AppDeps {
   profile: ProfileRepository;
   /** Read/write access to settings (active model + model cache). */
   settings: SettingsRepository;
+  /** Read/write access to favourites. */
+  favourites: FavouritesRepository;
+  /** Read/write access to cooked history. */
+  cookedHistory: CookedHistoryRepository;
   /**
    * Refresh the cached model list from the OpenCode Go API.
    * No-op in tests; wired to the real fetch in production.
@@ -93,6 +100,18 @@ export function createApp(deps: AppDeps): Hono {
         profile: deps.profile.find(),
         models: deps.settings.listModels(),
         activeModel: deps.settings.getActiveModel(),
+      }),
+    );
+  });
+
+  /**
+   * `GET /favouritter` — the favourites page. Server-rendered
+   * so saved meals appear immediately without a JS round-trip.
+   */
+  app.get("/favouritter", (c) => {
+    return c.html(
+      renderFavouritesPage({
+        favourites: deps.favourites.list(),
       }),
     );
   });
@@ -381,6 +400,71 @@ export function createApp(deps: AppDeps): Hono {
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
+  });
+
+  /**
+   * `POST /api/favourites` — bookmark a Meal Inspiration.
+   * Body: `{ "title": "...", "description": "..." }`.
+   * Idempotent — same title returns the existing row.
+   */
+  app.post("/api/favourites", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { title?: unknown; description?: unknown };
+    if (typeof obj.title !== "string" || obj.title.length === 0) {
+      return c.json({ error: "title must be a non-empty string" }, 400);
+    }
+    if (typeof obj.description !== "string" || obj.description.length === 0) {
+      return c.json({ error: "description must be a non-empty string" }, 400);
+    }
+    const saved = deps.favourites.add({
+      title: obj.title,
+      description: obj.description,
+    });
+    return c.json(saved, 201);
+  });
+
+  /**
+   * `GET /api/favourites` — return all saved favourites, newest first.
+   */
+  app.get("/api/favourites", (c) => {
+    return c.json({ favourites: deps.favourites.list() });
+  });
+
+  /**
+   * `POST /api/cooked` — stamp a meal as cooked.
+   * Body: `{ "title": "...", "description": "..." }`.
+   * Always inserts a new row so the 14-day window tracks every cook.
+   */
+  app.post("/api/cooked", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { title?: unknown; description?: unknown };
+    if (typeof obj.title !== "string" || obj.title.length === 0) {
+      return c.json({ error: "title must be a non-empty string" }, 400);
+    }
+    if (typeof obj.description !== "string" || obj.description.length === 0) {
+      return c.json({ error: "description must be a non-empty string" }, 400);
+    }
+    const stamped = deps.cookedHistory.stamp({
+      title: obj.title,
+      description: obj.description,
+    });
+    return c.json(stamped, 201);
   });
 
   return app;

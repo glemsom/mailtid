@@ -8,18 +8,28 @@ import {
   InspirationService,
   parseShortFormResponse,
 } from "../../src/inspiration/service.js";
+import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 
 function makeService(opts: {
   cannedResponse: string;
   month: number;
-}): { service: InspirationService; llm: MockLLMClient } {
+}): { service: InspirationService; llm: MockLLMClient; db: Database.Database } {
   const db = new Database(":memory:");
   runMigrations(db);
   importSeasonalitySeed(db);
   const repo = new SeasonalityRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
-  const service = new InspirationService(repo, llm, () => opts.month);
-  return { service, llm };
+  const cookedHistory = new CookedHistoryRepository(db);
+  const service = new InspirationService(
+    repo,
+    llm,
+    () => opts.month,
+    undefined,
+    undefined,
+    undefined,
+    cookedHistory,
+  );
+  return { service, llm, db };
 }
 
 const CANNED = JSON.stringify({
@@ -54,6 +64,34 @@ describe("InspirationService.shortForm", () => {
     expect(prompt).toContain("måned 6");
     // Spot-check: at least one June-only ingredient is in the prompt.
     expect(prompt).toContain("Jordbær");
+  });
+
+  test("includes cooked-history in the prompt when meals have been cooked in the last 14 days", async () => {
+    const { service, llm, db } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    // Stamp a meal as cooked just now.
+    const cookedHistory = new CookedHistoryRepository(db);
+    cookedHistory.stamp({
+      title: "Jordbærtærte",
+      description: "Sprød tærte med friske jordbær.",
+    });
+
+    await service.shortForm();
+
+    expect(llm.prompts).toHaveLength(1);
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).toContain("Tidligere lavet");
+    expect(prompt).toContain("Jordbærtærte");
+    expect(prompt).toContain("undgå");
+  });
+
+  test("omits cooked-history section when nothing is cooked", async () => {
+    const { service, llm } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    await service.shortForm();
+
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).not.toContain("Tidligere lavet");
   });
 });
 

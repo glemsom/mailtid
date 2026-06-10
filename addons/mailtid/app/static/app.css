@@ -138,7 +138,79 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   padding: 14px 16px;
 }
 .meal h3 { margin: 0 0 6px 0; font-size: 17px; }
-.meal p { margin: 0; color: var(--fg); }
+.meal p { margin: 0 0 10px 0; color: var(--fg); }
+
+.meal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.meal-header h3 { margin-bottom: 4px; flex: 1; }
+
+.heart-btn {
+  background: transparent;
+  border: 0;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.15s, transform 0.15s;
+  padding: 0 2px;
+  line-height: 1;
+}
+.heart-btn:hover { color: var(--exclude); transform: scale(1.2); }
+.heart-btn.hearted { color: var(--exclude); }
+
+.meal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.meal-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--neutral-border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+  background: var(--neutral);
+  color: var(--fg);
+  transition: background 0.1s, border-color 0.1s;
+}
+.meal-actions button:hover { background: var(--accent-soft); }
+
+.cooked-btn { }
+.cooked-btn.cooked {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.recipe-btn { }
+
+.recipe {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 16px;
+}
+.recipe h3 { margin: 0 0 12px 0; }
+.recipe h4 { margin: 12px 0 6px 0; font-size: 15px; color: var(--accent); }
+.recipe ul, .recipe ol { margin: 0 0 12px 0; padding-left: 20px; }
+.recipe li { margin-bottom: 4px; }
+
+.close-recipe {
+  background: var(--muted);
+  color: #fff;
+  border: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nav-links { display: flex; gap: 12px; }
 
 .status { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 .empty { color: var(--muted); }

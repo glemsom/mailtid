@@ -8,6 +8,8 @@ import { FilterStateRepository } from "../db/filter-state.js";
 import { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 import { ProfileRepository } from "../db/profile.js";
 import { SettingsRepository } from "../db/settings.js";
+import { FavouritesRepository } from "../db/favourites.js";
+import { CookedHistoryRepository } from "../db/cooked-history.js";
 import { InspirationService } from "../inspiration/service.js";
 import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
@@ -65,13 +67,15 @@ export function buildAppDeps(
   const customIngredients = new CustomIngredientsRepository(db);
   const profile = new ProfileRepository(db);
   const settings = new SettingsRepository(db);
+  const favourites = new FavouritesRepository(db);
+  const cookedHistory = new CookedHistoryRepository(db);
   const llm = options.llm ?? new RealLLMClient(config.opencodeApiKey);
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
   const inspiration = new InspirationService(seasonality, llm, monthProvider, {
     filterState,
     customIngredients,
-  }, profile, settings);
+  }, profile, settings, cookedHistory);
   const recipe = new RecipeService(seasonality, llm, monthProvider);
 
   return {
@@ -80,6 +84,8 @@ export function buildAppDeps(
     customIngredients,
     profile,
     settings,
+    favourites,
+    cookedHistory,
     inspiration,
     recipe,
     monthProvider,

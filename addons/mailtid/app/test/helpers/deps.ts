@@ -6,6 +6,8 @@ import { FilterStateRepository } from "../../src/db/filter-state.js";
 import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
 import { ProfileRepository } from "../../src/db/profile.js";
 import { SettingsRepository } from "../../src/db/settings.js";
+import { FavouritesRepository } from "../../src/db/favourites.js";
+import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
@@ -45,6 +47,8 @@ export function makeTestDeps(opts: {
   const customIngredients = new CustomIngredientsRepository(db);
   const profile = new ProfileRepository(db);
   const settings = new SettingsRepository(db);
+  const favourites = new FavouritesRepository(db);
+  const cookedHistory = new CookedHistoryRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
   const inspiration = new InspirationService(
     seasonality,
@@ -53,6 +57,7 @@ export function makeTestDeps(opts: {
     { filterState, customIngredients },
     profile,
     settings,
+    cookedHistory,
   );
   const recipe = new RecipeService(seasonality, llm, () => opts.month);
   return {
@@ -62,6 +67,8 @@ export function makeTestDeps(opts: {
       customIngredients,
       profile,
       settings,
+      favourites,
+      cookedHistory,
       inspiration,
       recipe,
       monthProvider: () => opts.month,

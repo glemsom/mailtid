@@ -11,6 +11,7 @@ import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
+import type { CookedHistoryRepository } from "../db/cooked-history.js";
 
 /**
  * A single short-form Meal Inspiration. Returned by the home-screen
@@ -102,6 +103,7 @@ export class InspirationService {
     private readonly filterDeps?: InspirationServiceFilterDeps,
     private readonly profileRepo?: ProfileRepository,
     private readonly settingsRepo?: SettingsRepository,
+    private readonly cookedHistoryRepo?: CookedHistoryRepository,
   ) {}
 
   /**
@@ -117,7 +119,12 @@ export class InspirationService {
       ? this.buildFilter(inSeason)
       : undefined;
     const profile = this.profileRepo?.find() ?? undefined;
-    const prompt = buildShortFormPrompt(month, inSeason, filter, profile);
+    const cookedTitles = this.cookedHistoryRepo
+      ? this.cookedHistoryRepo
+          .listSince(Date.now() - 14 * 24 * 60 * 60 * 1000)
+          .map((m) => m.title)
+      : undefined;
+    const prompt = buildShortFormPrompt(month, inSeason, filter, profile, cookedTitles);
     const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
     const raw = await this.llm.chat(prompt, activeModel ? { model: activeModel } : undefined);
     return parseShortFormResponse(raw);

@@ -56,4 +56,24 @@ export function runMigrations(db: Database.Database): void {
       model TEXT
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS favourites (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT    NOT NULL,
+      description TEXT    NOT NULL,
+      saved_at    INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    );
+  `);
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_favourites_title
+      ON favourites(title);
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cooked_history (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT    NOT NULL,
+      description TEXT    NOT NULL,
+      cooked_at   INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    );
+  `);
 }

@@ -70,10 +70,129 @@ function renderMeals(meals) {
   container.innerHTML = meals
     .map(
       (meal) =>
-        `<article class="meal"><h3>${escapeHtml(meal.title)}</h3>` +
-        `<p>${escapeHtml(meal.description)}</p></article>`,
+        `<article class="meal">` +
+        `<div class="meal-header">` +
+        `<h3>${escapeHtml(meal.title)}</h3>` +
+        `<button class="heart-btn" data-favourite-title="${escapeHtml(meal.title)}"` +
+        ` data-favourite-desc="${escapeHtml(meal.description)}"` +
+        ` aria-label="Gem som favorit" title="Gem som favorit">♥</button>` +
+        `</div>` +
+        `<p>${escapeHtml(meal.description)}</p>` +
+        `<div class="meal-actions">` +
+        `<button class="cooked-btn" data-cooked-title="${escapeHtml(meal.title)}"` +
+        ` data-cooked-desc="${escapeHtml(meal.description)}">` +
+        `Har lavet</button>` +
+        `<button class="recipe-btn" data-recipe-title="${escapeHtml(meal.title)}"` +
+        ` data-recipe-desc="${escapeHtml(meal.description)}">` +
+        `Se opskrift</button>` +
+        `</div>` +
+        `</article>`,
     )
     .join("");
+
+  // Wire heart buttons.
+  for (const btn of container.querySelectorAll(".heart-btn")) {
+    btn.addEventListener("click", async () => {
+      const title = btn.getAttribute("data-favourite-title") || "";
+      const description = btn.getAttribute("data-favourite-desc") || "";
+      try {
+        const res = await fetch("/api/favourites", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        if (res.ok) {
+          btn.classList.add("hearted");
+          setStatus("Gemt som favorit!");
+        } else {
+          setStatus("Kunne ikke gemme favorit.");
+        }
+      } catch (err) {
+        setStatus("Kunne ikke gemme favorit.");
+      }
+    });
+  }
+
+  // Wire "Har lavet" buttons.
+  for (const btn of container.querySelectorAll(".cooked-btn")) {
+    btn.addEventListener("click", async () => {
+      const title = btn.getAttribute("data-cooked-title") || "";
+      const description = btn.getAttribute("data-cooked-desc") || "";
+      try {
+        const res = await fetch("/api/cooked", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        if (res.ok) {
+          btn.classList.add("cooked");
+          btn.textContent = "Lavet ✓";
+          setStatus("Markeret som lavet!");
+        } else {
+          setStatus("Kunne ikke markere som lavet.");
+        }
+      } catch (err) {
+        setStatus("Kunne ikke markere som lavet.");
+      }
+    });
+  }
+
+  // Wire recipe buttons.
+  for (const btn of container.querySelectorAll(".recipe-btn")) {
+    btn.addEventListener("click", async () => {
+      const title = btn.getAttribute("data-recipe-title") || "";
+      const description = btn.getAttribute("data-recipe-desc") || "";
+      btn.disabled = true;
+      btn.textContent = "Henter opskrift...";
+      try {
+        const res = await fetch("/api/inspiration/recipe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        if (res.ok) {
+          const recipe = await res.json();
+          showRecipe(recipe);
+        } else {
+          setStatus("Kunne ikke hente opskrift.");
+        }
+      } catch (err) {
+        setStatus("Kunne ikke hente opskrift.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Se opskrift";
+      }
+    });
+  }
+}
+
+function showRecipe(recipe) {
+  // Show the full recipe in a modal or inline below the cards.
+  // For now, render it in the status area as a simple display.
+  const container = document.getElementById("recipe-display");
+  if (!container) {
+    // Create one if it doesn't exist.
+    const section = document.createElement("section");
+    section.id = "recipe-display";
+    section.setAttribute("aria-label", "Fuld opskrift");
+    const results = document.getElementById("results");
+    if (results) results.appendChild(section);
+  }
+  const el = document.getElementById("recipe-display");
+  if (!el) return;
+  el.innerHTML =
+    `<article class="recipe">` +
+    `<h3>${escapeHtml(recipe.title)}</h3>` +
+    `<h4>Ingredienser</h4>` +
+    `<ul>${(recipe.ingredients || []).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>` +
+    `<h4>Fremgangsmåde</h4>` +
+    `<ol>${(recipe.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>` +
+    `<button class="close-recipe">Luk</button>` +
+    `</article>`;
+  el.querySelector(".close-recipe")?.addEventListener("click", () => {
+    el.innerHTML = "";
+  });
+  el.scrollIntoView({ behavior: "smooth" });
 }
 
 function applyChipState(chip) {
