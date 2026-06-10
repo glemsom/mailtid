@@ -25,6 +25,8 @@ export interface SettingsPageData {
   models: readonly CachedModel[];
   /** The active model id, or null if none selected. */
   activeModel: string | null;
+  /** Whether an API key has been saved (so the UI can show a hint). */
+  hasApiKey: boolean;
 }
 
 /**
@@ -205,6 +207,22 @@ export function renderSettingsPage(data: SettingsPageData): string {
     </form>
   </section>
 
+  <section aria-label="API-nøgle">
+    <h2>OpenCode API-nøgle</h2>
+    <p class="hint">Indtast din OpenCode Go API-nøgle. Nøglen gemmes lokalt og bruges straks — ingen genstart nødvendig.</p>
+    <form id="apikey-form">
+      <div class="form-group">
+        <input type="password" id="apikey-input" name="apiKey"
+          placeholder="sk-...">
+      </div>
+      <p class="model-info" id="apikey-info">${
+        data.hasApiKey ? "✅ API-nøgle er gemt." : "⚠️ Ingen API-nøgle gemt endnu."
+      }</p>
+      <button type="submit" class="primary">Gem API-nøgle</button>
+      <span id="apikey-status" class="save-status" role="status" aria-live="polite"></span>
+    </form>
+  </section>
+
   <section aria-label="Model">
     <h2>Model</h2>
     <p class="hint">Vælg hvilken OpenCode Go-model Mailtid skal bruge til at generere forslag.</p>
@@ -224,7 +242,32 @@ export function renderSettingsPage(data: SettingsPageData): string {
   </section>
 
   <script>
-    // Settings page client: profile form + model picker + refresh.
+    // Settings page client: API key form + profile form + model picker + refresh.
+    function setApiKeyStatus(text) {
+      var el = document.getElementById("apikey-status");
+      if (el) { el.textContent = text; setTimeout(function(){ el.textContent = ""; }, 3000); }
+    }
+    document.getElementById("apikey-form").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      var key = document.getElementById("apikey-input").value;
+      try {
+        var res = await fetch("/api/settings/apikey", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ apiKey: key })
+        });
+        if (res.ok) {
+          setApiKeyStatus("API-nøgle gemt.");
+          var info = document.getElementById("apikey-info");
+          if (info) { info.textContent = "✅ API-nøgle er gemt."; }
+        } else {
+          var body = await res.json();
+          setApiKeyStatus(body.error || "Kunne ikke gemme API-nøglen.");
+        }
+      } catch (err) {
+        setApiKeyStatus("Kunne ikke gemme API-nøglen.");
+      }
+    });
     function setProfileStatus(text) {
       var el = document.getElementById("profile-status");
       if (el) { el.textContent = text; setTimeout(function(){ el.textContent = ""; }, 3000); }

@@ -86,7 +86,7 @@ export function buildAppDeps(
     settings,
     favourites,
     cookedHistory,
-    hasApiKey: config.opencodeApiKey.length > 0,
+    hasApiKey: () => config.opencodeApiKey.length > 0 || settings.getApiKey().length > 0,
     inspiration,
     recipe,
     monthProvider,

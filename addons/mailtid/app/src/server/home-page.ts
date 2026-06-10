@@ -66,7 +66,7 @@ export function renderHomePage(data: HomePageData): string {
   const missingKeyHtml = data.hasApiKey
     ? ""
     : `<div class="banner banner-warning" role="alert">
-  ⚠️ Indtast din OpenCode API-nøgle i add-on-indstillingerne.
+  ⚠️ Indtast din OpenCode API-nøgle i indstillingerne.
   <a href="/indstillinger">Gå til indstillinger</a>
 </div>`;
 

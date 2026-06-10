@@ -74,7 +74,7 @@ export function makeTestDeps(opts: {
       inspiration,
       recipe,
       monthProvider: () => opts.month,
-      hasApiKey: opts.hasApiKey !== false,
+      hasApiKey: () => opts.hasApiKey !== false,
     refreshModelCache: stubRefreshModelCache,
     },
     llm,

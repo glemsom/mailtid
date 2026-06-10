@@ -64,6 +64,31 @@ export class SettingsRepository {
   }
 
   /**
+   * Return the API key stored via the in-app settings page.
+   * Returns an empty string when no key has been set through the
+   * web UI. Does NOT read the HA add-on options file — callers
+   * should combine this with {@link MailtidConfig.opencodeApiKey}.
+   */
+  getApiKey(): string {
+    const row = this.db
+      .prepare<[], { key: string }>(
+        `SELECT key FROM api_key WHERE id = 1`,
+      )
+      .get();
+    return row?.key ?? "";
+  }
+
+  /** Persist the API key entered through the in-app settings page. */
+  setApiKey(key: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO api_key (id, key) VALUES (1, ?)
+         ON CONFLICT(id) DO UPDATE SET key = excluded.key`,
+      )
+      .run(key);
+  }
+
+  /**
    * All cached models, free first then paid, each tier sorted
    * alphabetically by display name so the picker renders stably.
    */

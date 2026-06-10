@@ -76,4 +76,10 @@ export function runMigrations(db: Database.Database): void {
       cooked_at   INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS api_key (
+      id  INTEGER PRIMARY KEY CHECK (id = 1),
+      key TEXT    NOT NULL DEFAULT ''
+    );
+  `);
 }

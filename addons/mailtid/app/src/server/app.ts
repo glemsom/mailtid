@@ -53,11 +53,12 @@ export interface AppDeps {
   /** Read/write access to cooked history. */
   cookedHistory: CookedHistoryRepository;
   /**
-   * Whether the OpenCode API key is set. When false, the home page
-   * shows a missing-key message and /api/inspiration returns 503
-   * instead of attempting the LLM call.
+   * Whether the OpenCode API key is set (either via the HA add-on
+   * options at startup or via the in-app settings page at runtime).
+   * When false, the home page shows a missing-key message and
+   * /api/inspiration returns 503 instead of attempting the LLM call.
    */
-  hasApiKey: boolean;
+  hasApiKey(): boolean;
   /**
    * Refresh the cached model list from the OpenCode Go API.
    * No-op in tests; wired to the real fetch in production.
@@ -93,7 +94,7 @@ export function createApp(deps: AppDeps): Hono {
     const custom = deps.customIngredients.list();
     const profile = deps.profile.find();
     return c.html(
-      renderHomePage({ month, inSeason, filter, custom, profile, hasApiKey: deps.hasApiKey }),
+      renderHomePage({ month, inSeason, filter, custom, profile, hasApiKey: deps.hasApiKey() }),
     );
   });
 
@@ -108,6 +109,7 @@ export function createApp(deps: AppDeps): Hono {
         profile: deps.profile.find(),
         models: deps.settings.listModels(),
         activeModel: deps.settings.getActiveModel(),
+        hasApiKey: deps.hasApiKey(),
       }),
     );
   });
@@ -187,10 +189,10 @@ export function createApp(deps: AppDeps): Hono {
    * Returns 503 when no API key is configured.
    */
   app.post("/api/inspiration", async (c) => {
-    if (!deps.hasApiKey) {
+    if (!deps.hasApiKey()) {
       warnLog("inspiration", "OpenCode API key not set");
       return c.json({
-        error: "Indtast din OpenCode API-nøgle i add-on-indstillingerne",
+        error: "Indtast din OpenCode API-nøgle i indstillingerne",
       }, 503);
     }
     try {
@@ -339,6 +341,30 @@ export function createApp(deps: AppDeps): Hono {
    */
   app.get("/api/models", (c) => {
     return c.json({ models: deps.settings.listModels() });
+  });
+
+  /**
+   * `PUT /api/settings/apikey` — persist the user's OpenCode API
+   * key from the in-app settings page. Body: `{ "apiKey": "sk-..." }`.
+   * The key takes effect immediately for subsequent inspiration
+   * calls — no container restart required.
+   */
+  app.put("/api/settings/apikey", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { apiKey?: unknown };
+    if (typeof obj.apiKey !== "string") {
+      return c.json({ error: "apiKey must be a string" }, 400);
+    }
+    deps.settings.setApiKey(obj.apiKey);
+    return c.json({ ok: true });
   });
 
   /**
