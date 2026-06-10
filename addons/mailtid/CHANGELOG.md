@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Dockerfile: skiftet fra Alpine til Debian (node:lts / node:lts-slim).
+  Løser et `fcntl64`-linkfejl i better-sqlite3's native modul på
+  musl-baserede images.
+- README.md til repo-roden med bygge-, test- og deploy-instruktioner.
+
 ## 0.4.0
 
 - Filter-UI på hjemmesiden: in-season-chips der cykler
