@@ -1,0 +1,33 @@
+name: Mailtid
+version: "0.1.0"
+slug: mailtid
+description: >-
+  Dansk måltidsinspiration — en lokal HA-add-on, der foreslår 5
+  sæsonbetonede middagsretter baseret på en dansk
+  sæsonkalender, en OpenCode Go LLM og din husstands profil.
+url: "https://github.com/local/mailtid"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: false
+startup: services
+boot: auto
+hassio_api: false
+homeassistant_api: false
+host_network: false
+ports:
+  8200/tcp: 8200
+ports_description:
+  8200/tcp: Web UI
+options:
+  opencode_api_key: ""
+  log_level: "info"
+  port: 8200
+  default_language: "da"
+schema:
+  opencode_api_key: "password"
+  log_level: "list(trace|debug|info|warn|error)"
+  port: "port"
+  default_language: "list(da|en)"
+image: "ghcr.io/local/mailtid"
