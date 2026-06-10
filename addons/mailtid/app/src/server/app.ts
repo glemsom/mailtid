@@ -14,6 +14,7 @@ import type { RecipeService } from "../inspiration/recipe-service.js";
 import { renderHomePage } from "./home-page.js";
 import { renderSettingsPage } from "./settings-page.js";
 import { renderFavouritesPage } from "./favourites-page.js";
+import { renderAdminPage } from "./admin-page.js";
 
 /**
  * Resolve the path to the bundled `static/` directory at build time.
@@ -119,6 +120,18 @@ export function createApp(deps: AppDeps): Hono {
     return c.html(
       renderFavouritesPage({
         favourites: deps.favourites.list(),
+      }),
+    );
+  });
+
+  /**
+   * `GET /admin/seasonality` — the seasonality admin page.
+   * Server-rendered with the full editable table.
+   */
+  app.get("/admin/seasonality", (c) => {
+    return c.html(
+      renderAdminPage({
+        ingredients: deps.seasonality.findAll(),
       }),
     );
   });
@@ -455,6 +468,90 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   /**
+   * `GET /api/admin/seasonality` — list all ingredients in the
+   * seasonality table, grouped by slug with their months array.
+   * Used by the admin UI to render the editable table.
+   */
+  app.get("/api/admin/seasonality", (c) => {
+    return c.json({ ingredients: deps.seasonality.findAll() });
+  });
+
+  /**
+   * `PUT /api/admin/seasonality/:slug` — update or create a single
+   * ingredient. Body: `{ "nameDa": "...", "months": [1,2,3] }`.
+   * Months must be an array of integers in 1-12.
+   */
+  app.put("/api/admin/seasonality/:slug", async (c) => {
+    const slug = decodeURIComponent(c.req.param("slug"));
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { nameDa?: unknown; months?: unknown };
+    if (typeof obj.nameDa !== "string" || obj.nameDa.trim().length === 0) {
+      return c.json({ error: "nameDa must be a non-empty string" }, 400);
+    }
+    if (!isMonthArray(obj.months)) {
+      return c.json({ error: "months must be an array of integers in 1-12" }, 400);
+    }
+    deps.seasonality.upsert(slug, obj.nameDa.trim(), obj.months);
+    return c.json({ slug, nameDa: obj.nameDa.trim(), months: obj.months });
+  });
+
+  /**
+   * `POST /api/admin/seasonality` — create a new ingredient with a
+   * slug derived from the Danish name. Body: `{ "nameDa": "...",
+   * "months": [1,2,3] }`.
+   */
+  app.post("/api/admin/seasonality", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { nameDa?: unknown; months?: unknown };
+    if (typeof obj.nameDa !== "string" || obj.nameDa.trim().length === 0) {
+      return c.json({ error: "nameDa must be a non-empty string" }, 400);
+    }
+    if (!isMonthArray(obj.months)) {
+      return c.json({ error: "months must be an array of integers in 1-12" }, 400);
+    }
+    const slug = sluggify(obj.nameDa.trim());
+    deps.seasonality.upsert(slug, obj.nameDa.trim(), obj.months);
+    return c.json({ slug, nameDa: obj.nameDa.trim(), months: obj.months }, 201);
+  });
+
+  /**
+   * `DELETE /api/admin/seasonality/:slug` — remove every row for
+   * the given ingredient. Idempotent — always returns 204.
+   */
+  app.delete("/api/admin/seasonality/:slug", (c) => {
+    const slug = decodeURIComponent(c.req.param("slug"));
+    deps.seasonality.deleteBySlug(slug);
+    return c.body(null, 204);
+  });
+
+  /**
+   * `POST /api/admin/seasonality/reset` — wipe all DB rows and
+   * re-import from `seasonality.json`. The "Nulstil til seed"
+   * action from the admin UI.
+   */
+  app.post("/api/admin/seasonality/reset", (c) => {
+    deps.seasonality.resetSeed();
+    const count = deps.seasonality.findAll().length;
+    return c.json({ ok: true, count });
+  });
+
+  /**
    * `POST /api/cooked` — stamp a meal as cooked.
    * Body: `{ "title": "...", "description": "..." }`.
    * Always inserts a new row so the 14-day window tracks every cook.
@@ -488,6 +585,32 @@ export function createApp(deps: AppDeps): Hono {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+function isMonthArray(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (v) => typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 12,
+    )
+  );
+}
+
+/**
+ * Derive a stable ASCII slug from a Danish ingredient name.
+ * Strips diacritics, lowercases, replaces spaces with underscores,
+ * and removes any remaining non-ASCII characters.
+ */
+function sluggify(nameDa: string): string {
+  return nameDa
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 /**

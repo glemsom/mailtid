@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import Database from "better-sqlite3";
 import { runMigrations } from "../../src/db/migrate.js";
-import { importSeasonalitySeed } from "../../src/db/seed.js";
+import { importSeasonalitySeed, readSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 
 function freshRepo(): SeasonalityRepository {
@@ -47,6 +47,42 @@ describe("SeasonalityRepository.findInSeasonForMonth", () => {
 
     const result = repo.findInSeasonForMonth(6);
     const names = result.map((i) => i.nameDa);
+    const sorted = [...names].sort((a, b) => a.localeCompare(b, "da"));
+    expect(names).toEqual(sorted);
+  });
+});
+
+describe("SeasonalityRepository.findAll", () => {
+  test("returns all ingredients from the seasonality table grouped by slug", () => {
+    const repo = freshRepo();
+
+    const all = repo.findAll();
+
+    // The seed file has ~80 ingredients.
+    expect(all.length).toBeGreaterThan(50);
+    // Every entry must have slug, nameDa, months.
+    for (const ing of all) {
+      expect(typeof ing.slug).toBe("string");
+      expect(typeof ing.nameDa).toBe("string");
+      expect(Array.isArray(ing.months)).toBe(true);
+      expect(ing.months.length).toBeGreaterThan(0);
+      // Months must be sorted.
+      for (let i = 1; i < ing.months.length; i++) {
+        expect(ing.months[i]).toBeGreaterThan(ing.months[i - 1]);
+      }
+    }
+    // Spot-check: Jordbær has months [5, 6, 7].
+    const jordbaer = all.find((i) => i.slug === "jordbaer");
+    expect(jordbaer).toBeDefined();
+    expect(jordbaer!.nameDa).toBe("Jordbær");
+    expect(jordbaer!.months).toEqual([5, 6, 7]);
+  });
+
+  test("orders results alphabetically by Danish display name", () => {
+    const repo = freshRepo();
+
+    const all = repo.findAll();
+    const names = all.map((i) => i.nameDa);
     const sorted = [...names].sort((a, b) => a.localeCompare(b, "da"));
     expect(names).toEqual(sorted);
   });
