@@ -1,0 +1,8 @@
+.pass
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+addons/mailtid/app/data/mailtid.db
+addons/mailtid/app/data/mailtid.db-*
