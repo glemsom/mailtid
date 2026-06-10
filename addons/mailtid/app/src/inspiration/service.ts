@@ -111,8 +111,9 @@ export class InspirationService {
    * constrained to the in-season Danish ingredient list and the
    * user's current filter selection.
    */
-  async shortForm(): Promise<MealInspiration[]> {
+  async shortForm(onStatus?: (status: string) => void): Promise<MealInspiration[]> {
     const month = this.monthProvider();
+    onStatus?.("Henter sæsonbestemte råvarer...");
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const filter = this.filterDeps
@@ -124,6 +125,8 @@ export class InspirationService {
           .listSince(Date.now() - 14 * 24 * 60 * 60 * 1000)
           .map((m) => m.title)
       : undefined;
+      
+    onStatus?.("Genererer forslag med AI...");
     const prompt = buildShortFormPrompt(month, inSeason, filter, profile, cookedTitles);
     const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
     const raw = await this.llm.chat(prompt, activeModel ? { model: activeModel } : undefined);

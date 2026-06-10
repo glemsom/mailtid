@@ -12,6 +12,21 @@ const FIVE_MEALS = JSON.stringify({
   ],
 });
 
+async function readSSE(res: Response): Promise<{ event: string; data: string }[]> {
+  const text = await res.text();
+  const events: { event: string; data: string }[] = [];
+  let currentEvent = "message";
+  for (const line of text.split("\n")) {
+    if (line.startsWith("event: ")) {
+      currentEvent = line.slice(7).trim();
+    } else if (line.startsWith("data: ")) {
+      events.push({ event: currentEvent, data: line.slice(6) });
+      currentEvent = "message";
+    }
+  }
+  return events;
+}
+
 describe("Error handling: missing API key", () => {
   test("GET / returns home page with missing-key message when api key is empty", async () => {
     const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6, hasApiKey: false });
@@ -56,8 +71,11 @@ describe("Error handling: LLM throws", () => {
     const res = await app.request("http://localhost/api/inspiration", {
       method: "POST",
     });
-    expect(res.status).toBe(502);
-    const body = (await res.json()) as { error: string };
+    expect(res.status).toBe(200); // SSE always returns 200
+    const events = await readSSE(res);
+    const errorEvent = events.find((e) => e.event === "error");
+    expect(errorEvent).toBeDefined();
+    const body = JSON.parse(errorEvent!.data) as { error: string };
     expect(body.error).toContain("Kunne ikke få forslag");
   });
 
@@ -120,7 +138,7 @@ describe("Error handling: malformed LLM JSON", () => {
     const res = await app.request("http://localhost/api/inspiration", {
       method: "POST",
     });
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(200); // SSE always returns 200
 
     expect(errorSpy).toHaveBeenCalled();
     const allCalls = errorSpy.mock.calls.map((c) => c.join(" ")).join("\n");
@@ -136,8 +154,11 @@ describe("Error handling: malformed LLM JSON", () => {
     const res = await app.request("http://localhost/api/inspiration", {
       method: "POST",
     });
-    expect(res.status).toBe(502);
-    const body = (await res.json()) as { error: string };
+    expect(res.status).toBe(200); // SSE always returns 200
+    const events = await readSSE(res);
+    const errorEvent = events.find((e) => e.event === "error");
+    expect(errorEvent).toBeDefined();
+    const body = JSON.parse(errorEvent!.data) as { error: string };
     expect(body.error).toContain("Kunne ikke få forslag");
   });
 });

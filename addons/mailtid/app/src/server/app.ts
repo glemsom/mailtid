@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
@@ -186,7 +187,8 @@ export function createApp(deps: AppDeps): Hono {
    * for the current month, constrained to the in-season Danish
    * ingredient list. The LLM does the heavy lifting; the handler
    * is a thin wrapper that maps parse / network errors to a 502.
-   * Returns 503 when no API key is configured.
+   * Returns 503 when no API key is configured. Streams status
+   * updates via SSE so the user gets real-time feedback.
    */
   app.post("/api/inspiration", async (c) => {
     if (!deps.hasApiKey()) {
@@ -195,13 +197,21 @@ export function createApp(deps: AppDeps): Hono {
         error: "Indtast din OpenCode API-nøgle i indstillingerne",
       }, 503);
     }
-    try {
-      const meals = await deps.inspiration.shortForm();
-      return c.json({ meals });
-    } catch (err) {
-      logError("inspiration", err);
-      return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
-    }
+    
+    return streamSSE(c, async (stream) => {
+      try {
+        const meals = await deps.inspiration.shortForm((status) => {
+          stream.writeSSE({ data: status, event: "status" }).catch(() => {});
+        });
+        await stream.writeSSE({ data: JSON.stringify({ meals }), event: "done" });
+      } catch (err) {
+        logError("inspiration", err);
+        await stream.writeSSE({ 
+          data: JSON.stringify({ error: "Kunne ikke få forslag — prøv igen" }), 
+          event: "error" 
+        });
+      }
+    });
   });
 
   /**
