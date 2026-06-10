@@ -4,6 +4,8 @@ import Database from "better-sqlite3";
 import { runMigrations } from "../db/migrate.js";
 import { importSeasonalitySeed } from "../db/seed.js";
 import { SeasonalityRepository } from "../db/seasonality.js";
+import { FilterStateRepository } from "../db/filter-state.js";
+import { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 import { InspirationService } from "../inspiration/service.js";
 import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
@@ -55,12 +57,24 @@ export function buildAppDeps(
   runMigrations(db);
   importSeasonalitySeed(db);
 
-  const repo = new SeasonalityRepository(db);
+  const seasonality = new SeasonalityRepository(db);
+  const filterState = new FilterStateRepository(db);
+  const customIngredients = new CustomIngredientsRepository(db);
   const llm = options.llm ?? new RealLLMClient(config.opencodeApiKey);
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
-  const inspiration = new InspirationService(repo, llm, monthProvider);
-  const recipe = new RecipeService(repo, llm, monthProvider);
+  const inspiration = new InspirationService(seasonality, llm, monthProvider, {
+    filterState,
+    customIngredients,
+  });
+  const recipe = new RecipeService(seasonality, llm, monthProvider);
 
-  return { seasonality: repo, inspiration, recipe };
+  return {
+    seasonality,
+    filterState,
+    customIngredients,
+    inspiration,
+    recipe,
+    monthProvider,
+  };
 }

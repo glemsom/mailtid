@@ -34,14 +34,16 @@ afterEach(async () => {
 });
 
 describe("HTTP server", () => {
-  test("binds to the configured port and serves the home greeting", async () => {
+  test("binds to the configured port and serves the home page", async () => {
     const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
     const app = createApp(deps);
     running = await startServer(app, FIXED_CONFIG);
 
     const res = await fetch(`http://127.0.0.1:${running.port}/`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toBe("Mailtid");
+    const body = await res.text();
+    expect(body).toContain("Mailtid");
+    expect(body.toLowerCase()).toContain("<!doctype html>");
   });
 });
 

@@ -5,14 +5,16 @@ import { makeTestDeps } from "../helpers/deps.js";
 const CANNED = JSON.stringify({ meals: [] });
 
 describe("GET /", () => {
-  test("returns the Mailtid greeting with HTTP 200", async () => {
+  test("returns the home page with HTTP 200 and a Mailtid title", async () => {
     const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/");
 
     expect(res.status).toBe(200);
-    expect(await res.text()).toBe("Mailtid");
+    const body = await res.text();
+    expect(body).toContain("Mailtid");
+    expect(body.toLowerCase()).toContain("<!doctype html>");
   });
 });
 

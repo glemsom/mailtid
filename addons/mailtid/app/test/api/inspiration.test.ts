@@ -51,4 +51,46 @@ describe("POST /api/inspiration", () => {
 
     expect(res.status).toBe(502);
   });
+
+  test("applies the user's saved in-season filter to the LLM prompt", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    const app = createApp(deps);
+
+    // Set a filter: include asparges, exclude champignon.
+    await app.request("http://localhost/api/filter", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        includes: ["asparges"],
+        excludes: ["champignon"],
+      }),
+    });
+    // Clear any leftover prompts.
+    llm.prompts.length = 0;
+
+    await app.request("http://localhost/api/inspiration", { method: "POST" });
+
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).toContain("Filtreringskrav");
+    expect(prompt).toContain("Asparges");
+    expect(prompt).toContain("Champignon");
+  });
+
+  test("applies the user's saved custom mandatory ingredients to the LLM prompt", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    const app = createApp(deps);
+
+    await app.request("http://localhost/api/custom-ingredients", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ris" }),
+    });
+    llm.prompts.length = 0;
+
+    await app.request("http://localhost/api/inspiration", { method: "POST" });
+
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).toContain("Filtreringskrav");
+    expect(prompt).toContain("Ris");
+  });
 });

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.0
+
+- Filter-UI på hjemmesiden: in-season-chips der cykler
+  neutral → include → exclude, fritekst-ingredienser der altid er
+  positive, og en "Vis 5 nye"-knap
+- `GET /` er nu server-renderet HTML (Hjem-skærmen), ikke plain
+  tekst
+- Tre nye endpoints:
+  - `GET /api/filter`, `PUT /api/filter` — brugerens valg af
+    in-season-chips (slugs), adskilt i `includes` og `excludes`
+  - `GET /api/custom-ingredients`, `POST /api/custom-ingredients`,
+    `DELETE /api/custom-ingredients/:slug` — fritekst-ingredienser
+    brugeren selv tilføjer
+- Nye databasetabeller: `filter_state` (single-row) og
+  `custom_ingredients`
+- Prompt-modulet udvidet med en "Filtreringskrav"-sektion
+  (ADR-0001: OR i in-season-inkluder, AND med custom mandatory,
+  AND på tværs af excludes). Tre uafhængige lister
+- Statiske aktiver serveres fra `/static/app.js` og
+  `/static/app.css` (klient-side chip-cykling, formular til
+  tilføjelse af råvarer, "Vis 5 nye"-knap)
+- `InspirationService` læser filter state fra DB og folder det
+  ind i prompten
+- 154 tests passerer (op fra 93)
+
 ## 0.3.0
 
 - Fuld opskrift ved kort-klik: `RecipeService` laver et andet,

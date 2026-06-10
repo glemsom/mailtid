@@ -13,6 +13,7 @@ RUN apk add --no-cache libc6-compat tini
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY app/data ./data
+COPY app/static ./static
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 EXPOSE 8200

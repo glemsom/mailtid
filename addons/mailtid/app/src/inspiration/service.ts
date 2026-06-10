@@ -1,8 +1,14 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
 import type { LLMClient } from "../llm/client.js";
-import { buildShortFormPrompt } from "../llm/prompt.js";
+import {
+  buildShortFormPrompt,
+  type FilteredIngredient,
+  type ShortFormFilter,
+} from "../llm/prompt.js";
 import { extractJsonObject } from "../llm/response.js";
 import type { SeasonalityRepository } from "../db/seasonality.js";
+import type { FilterStateRepository } from "../db/filter-state.js";
+import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 
 /**
  * A single short-form Meal Inspiration. Returned by the home-screen
@@ -63,14 +69,27 @@ function validateMeal(value: unknown, index: number): MealInspiration {
 }
 
 /**
+ * Optional filter dependencies for {@link InspirationService}. When
+ * provided, the service reads the user's current in-season filter
+ * state and custom mandatory ingredients from SQLite and folds them
+ * into the LLM prompt per ADR-0001. When omitted, the prompt is
+ * built without any filter section (the behaviour in slice #5).
+ */
+export interface InspirationServiceFilterDeps {
+  filterState: FilterStateRepository;
+  customIngredients: CustomIngredientsRepository;
+}
+
+/**
  * Business logic for the home-screen 5-meal call. Owns the
  * "look up in-season, build prompt, call LLM, parse response"
  * flow; the HTTP layer is a thin wrapper.
  *
  * The class is intentionally tiny: a single public method,
  * `shortForm()`. The seams (SeasonalityRepository, LLMClient,
- * monthProvider) are injected, so the service is trivially
- * testable against `:memory:` SQLite and a `MockLLMClient`.
+ * monthProvider, optional filter deps) are injected, so the service
+ * is trivially testable against `:memory:` SQLite and a
+ * `MockLLMClient`.
  */
 export class InspirationService {
   constructor(
@@ -78,18 +97,57 @@ export class InspirationService {
     private readonly llm: LLMClient,
     /** Provides the "current" month (1-12) for the request. */
     private readonly monthProvider: () => number,
+    private readonly filterDeps?: InspirationServiceFilterDeps,
   ) {}
 
   /**
    * Produce 5 short-form Meal Inspirations for the current month,
-   * constrained to the in-season Danish ingredient list.
+   * constrained to the in-season Danish ingredient list and the
+   * user's current filter selection.
    */
   async shortForm(): Promise<MealInspiration[]> {
     const month = this.monthProvider();
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
-    const prompt = buildShortFormPrompt(month, inSeason);
+    const filter = this.filterDeps
+      ? this.buildFilter(inSeason)
+      : undefined;
+    const prompt = buildShortFormPrompt(month, inSeason, filter);
     const raw = await this.llm.chat(prompt);
     return parseShortFormResponse(raw);
+  }
+
+  /**
+   * Resolve the user's saved filter state and custom mandatory
+   * ingredients into the shape the prompt module consumes.
+   *
+   * Slugs that don't match an in-season ingredient for the current
+   * month are silently dropped — protects against stale filter
+   * state (e.g. an in-season include from a previous month).
+   */
+  private buildFilter(
+    inSeason: readonly SeasonalityIngredient[],
+  ): ShortFormFilter {
+    if (!this.filterDeps) {
+      return { inSeasonIncludes: [], customMandatory: [], excludes: [] };
+    }
+    const inSeasonSlugs = new Set(inSeason.map((i) => i.slug));
+    const bySlug = new Map(inSeason.map((i) => [i.slug, i]));
+    const filterState = this.filterDeps.filterState.find();
+    const toFiltered = (slugs: string[]): FilteredIngredient[] =>
+      slugs
+        .filter((s) => inSeasonSlugs.has(s))
+        .map((s) => {
+          const ing = bySlug.get(s);
+          return { slug: s, nameDa: ing?.nameDa ?? s };
+        });
+    const customMandatory = this.filterDeps.customIngredients
+      .list()
+      .map((i) => i.nameDa);
+    return {
+      inSeasonIncludes: toFiltered(filterState.includes),
+      customMandatory,
+      excludes: toFiltered(filterState.excludes),
+    };
   }
 }

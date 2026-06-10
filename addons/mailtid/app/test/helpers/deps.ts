@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import { runMigrations } from "../../src/db/migrate.js";
 import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
+import { FilterStateRepository } from "../../src/db/filter-state.js";
+import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
@@ -32,12 +34,26 @@ export function makeTestDeps(opts: {
   const db = new Database(":memory:");
   runMigrations(db);
   importSeasonalitySeed(db);
-  const repo = new SeasonalityRepository(db);
+  const seasonality = new SeasonalityRepository(db);
+  const filterState = new FilterStateRepository(db);
+  const customIngredients = new CustomIngredientsRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
-  const inspiration = new InspirationService(repo, llm, () => opts.month);
-  const recipe = new RecipeService(repo, llm, () => opts.month);
+  const inspiration = new InspirationService(
+    seasonality,
+    llm,
+    () => opts.month,
+    { filterState, customIngredients },
+  );
+  const recipe = new RecipeService(seasonality, llm, () => opts.month);
   return {
-    deps: { seasonality: repo, inspiration, recipe },
+    deps: {
+      seasonality,
+      filterState,
+      customIngredients,
+      inspiration,
+      recipe,
+      monthProvider: () => opts.month,
+    },
     llm,
     db,
     month: opts.month,
