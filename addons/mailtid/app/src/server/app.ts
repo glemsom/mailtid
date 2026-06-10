@@ -199,8 +199,7 @@ export function createApp(deps: AppDeps): Hono {
       const meals = await deps.inspiration.shortForm();
       return c.json({ meals });
     } catch (err) {
-      const underlying = (err as Error).message;
-      warnLog("inspiration", underlying);
+      logError("inspiration", err);
       return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
     }
   });
@@ -241,8 +240,7 @@ export function createApp(deps: AppDeps): Hono {
       });
       return c.json(recipe);
     } catch (err) {
-      const underlying = (err as Error).message;
-      warnLog("recipe", underlying);
+      logError("recipe", err);
       return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
     }
   });
@@ -645,6 +643,29 @@ function sluggify(nameDa: string): string {
  */
 function warnLog(context: string, detail: string): void {
   console.warn(`mailtid: ${context}: ${detail}`);
+}
+
+/**
+ * Log a caught error from an HTTP handler. Writes to stderr
+ * (`console.error`) with the full error name, message and stack
+ * so the cause is visible in `docker run -it` output. The HTTP
+ * response stays a friendly Danish message — this is purely for
+ * the operator looking at the container logs.
+ *
+ * Defensive: handles non-Error throwables (strings, plain objects)
+ * without crashing the request.
+ */
+function logError(context: string, err: unknown): void {
+  if (err instanceof Error) {
+    const stack = err.stack ?? "(no stack)";
+    console.error(
+      `mailtid: ${context} failed: ${err.name}: ${err.message}\n${stack}`,
+    );
+  } else {
+    console.error(
+      `mailtid: ${context} failed: ${typeof err === "string" ? err : JSON.stringify(err)}`,
+    );
+  }
 }
 
 export type App = ReturnType<typeof createApp>;

@@ -99,4 +99,29 @@ describe("POST /api/inspiration/recipe", () => {
 
     expect(res.status).toBe(502);
   });
+
+  test("uses the user's saved active model when calling the LLM", async () => {
+    // Regression for the "Se opskrift" 502: the recipe call used
+    // to ignore the user's selected model and fall back to a
+    // hardcoded default that the upstream 404s on. The fix threads
+    // the active model through SettingsRepository.
+    const { deps, llm } = makeTestDeps({
+      cannedResponse: CANNED_RECIPE,
+      month: 6,
+    });
+    deps.settings.setActiveModel("opencode-go/deepseek-v4-flash");
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration/recipe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Aspargessuppe",
+        description: "Cremet suppe med grønne asparges.",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(llm.models).toEqual(["opencode-go/deepseek-v4-flash"]);
+  });
 });

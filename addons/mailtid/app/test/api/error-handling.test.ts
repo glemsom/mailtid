@@ -86,43 +86,47 @@ describe("Error handling: LLM throws", () => {
     expect(body.error).toContain("Kunne ikke få forslag");
   });
 
-  test("LLM throw is logged at WARN level", async () => {
+  test("LLM throw is logged at ERROR level with full stack", async () => {
+    // The HTTP response stays user-friendly (Danish error, 502);
+    // the operator looking at `docker run -it` output gets the
+    // full error name, message, and stack on stderr.
     const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     llm.shouldThrow = new Error("Connection refused");
     const app = createApp(deps);
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await app.request("http://localhost/api/inspiration", {
       method: "POST",
     });
 
-    expect(warnSpy).toHaveBeenCalled();
-    const logMsg = warnSpy.mock.calls[0]?.join(" ") ?? "";
-    expect(logMsg).toContain("mailtid");
-    expect(logMsg).toContain("Connection refused");
+    expect(errorSpy).toHaveBeenCalled();
+    const allCalls = errorSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(allCalls).toContain("mailtid");
+    expect(allCalls).toContain("inspiration");
+    expect(allCalls).toContain("Connection refused");
 
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 });
 
 describe("Error handling: malformed LLM JSON", () => {
-  test("malformed JSON is logged at WARN level", async () => {
+  test("malformed JSON is logged at ERROR level", async () => {
     const { deps } = makeTestDeps({ cannedResponse: "not json at all", month: 6 });
     const app = createApp(deps);
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const res = await app.request("http://localhost/api/inspiration", {
       method: "POST",
     });
     expect(res.status).toBe(502);
 
-    expect(warnSpy).toHaveBeenCalled();
-    const logMsg = warnSpy.mock.calls[0]?.join(" ") ?? "";
-    expect(logMsg).toContain("mailtid");
+    expect(errorSpy).toHaveBeenCalled();
+    const allCalls = errorSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(allCalls).toContain("mailtid");
 
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   test("malformed JSON returns friendly Danish error to user", async () => {

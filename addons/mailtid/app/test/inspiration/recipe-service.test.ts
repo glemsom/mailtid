@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import { runMigrations } from "../../src/db/migrate.js";
 import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
+import { SettingsRepository } from "../../src/db/settings.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import {
   RecipeService,
@@ -14,14 +15,19 @@ import type { MealInspiration } from "../../src/inspiration/service.js";
 function makeService(opts: {
   cannedResponse: string;
   month: number;
-}): { service: RecipeService; llm: MockLLMClient } {
+  activeModel?: string | null;
+}): { service: RecipeService; llm: MockLLMClient; settings: SettingsRepository } {
   const db = new Database(":memory:");
   runMigrations(db);
   importSeasonalitySeed(db);
   const repo = new SeasonalityRepository(db);
+  const settings = new SettingsRepository(db);
+  if (opts.activeModel !== undefined && opts.activeModel !== null) {
+    settings.setActiveModel(opts.activeModel);
+  }
   const llm = new MockLLMClient(opts.cannedResponse);
-  const service = new RecipeService(repo, llm, () => opts.month);
-  return { service, llm };
+  const service = new RecipeService(repo, llm, () => opts.month, settings);
+  return { service, llm, settings };
 }
 
 const MEAL: MealInspiration = {
@@ -111,6 +117,37 @@ describe("RecipeService.fullRecipe", () => {
     expect(prompt).toContain("Cremet suppe med grønne asparges.");
     // Spot-check: an in-season June ingredient is in the prompt.
     expect(prompt).toContain("Asparges");
+  });
+
+  test("passes the user's active model from SettingsRepository to the LLM", async () => {
+    // Regression: fullRecipe used to silently fall back to
+    // RealLLMClient's hardcoded default (opencode-go/glm-5.1),
+    // so a user-selected model was ignored on the recipe call and
+    // the upstream would 404 on the default. The fix threads
+    // SettingsRepository through and forwards its active model.
+    const { service, llm } = makeService({
+      cannedResponse: WIRE_JSON,
+      month: 6,
+      activeModel: "opencode-go/deepseek-v4-flash",
+    });
+
+    await service.fullRecipe(MEAL);
+
+    expect(llm.models).toEqual(["opencode-go/deepseek-v4-flash"]);
+  });
+
+  test("leaves the model unspecified when the user has not picked one", async () => {
+    // The default RealLLMClient falls back to its constructor
+    // default in that case. We pass `undefined` through rather
+    // than guessing.
+    const { service, llm } = makeService({
+      cannedResponse: WIRE_JSON,
+      month: 6,
+    });
+
+    await service.fullRecipe(MEAL);
+
+    expect(llm.models).toEqual([undefined]);
   });
 });
 

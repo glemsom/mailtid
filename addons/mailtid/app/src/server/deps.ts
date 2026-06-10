@@ -78,7 +78,7 @@ export function buildAppDeps(
     filterState,
     customIngredients,
   }, profile, settings, cookedHistory);
-  const recipe = new RecipeService(seasonality, llm, monthProvider);
+  const recipe = new RecipeService(seasonality, llm, monthProvider, settings);
 
   return {
     seasonality,

@@ -61,7 +61,7 @@ export function makeTestDeps(opts: {
     settings,
     cookedHistory,
   );
-  const recipe = new RecipeService(seasonality, llm, () => opts.month);
+  const recipe = new RecipeService(seasonality, llm, () => opts.month, settings);
   return {
     deps: {
       seasonality,

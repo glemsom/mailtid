@@ -1,4 +1,5 @@
 import type { SeasonalityIngredient, SeasonalityRepository } from "../db/seasonality.js";
+import type { SettingsRepository } from "../db/settings.js";
 import type { LLMClient } from "../llm/client.js";
 import { buildRecipePrompt } from "../llm/recipe-prompt.js";
 import { extractJsonObject } from "../llm/response.js";
@@ -123,6 +124,14 @@ export class RecipeService {
     private readonly llm: LLMClient,
     /** Provides the "current" month (1-12) for the request. */
     private readonly monthProvider: () => number,
+    /**
+     * Source of the user's active model. When provided, the
+     * selected model is threaded through to the LLM call so the
+     * recipe call uses the same model the home-screen call does.
+     * When omitted (tests, or callers that don't care), the
+     * LLMClient falls back to its own default.
+     */
+    private readonly settingsRepo?: SettingsRepository,
   ) {}
 
   /**
@@ -135,7 +144,11 @@ export class RecipeService {
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const prompt = buildRecipePrompt(meal, inSeason);
-    const raw = await this.llm.chat(prompt);
+    const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
+    const raw = await this.llm.chat(
+      prompt,
+      activeModel ? { model: activeModel } : undefined,
+    );
     return parseRecipeResponse(raw);
   }
 }
