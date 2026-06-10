@@ -9,6 +9,8 @@ import { extractJsonObject } from "../llm/response.js";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
+import type { ProfileRepository } from "../db/profile.js";
+import type { SettingsRepository } from "../db/settings.js";
 
 /**
  * A single short-form Meal Inspiration. Returned by the home-screen
@@ -98,6 +100,8 @@ export class InspirationService {
     /** Provides the "current" month (1-12) for the request. */
     private readonly monthProvider: () => number,
     private readonly filterDeps?: InspirationServiceFilterDeps,
+    private readonly profileRepo?: ProfileRepository,
+    private readonly settingsRepo?: SettingsRepository,
   ) {}
 
   /**
@@ -112,8 +116,10 @@ export class InspirationService {
     const filter = this.filterDeps
       ? this.buildFilter(inSeason)
       : undefined;
-    const prompt = buildShortFormPrompt(month, inSeason, filter);
-    const raw = await this.llm.chat(prompt);
+    const profile = this.profileRepo?.find() ?? undefined;
+    const prompt = buildShortFormPrompt(month, inSeason, filter, profile);
+    const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
+    const raw = await this.llm.chat(prompt, activeModel ? { model: activeModel } : undefined);
     return parseShortFormResponse(raw);
   }
 

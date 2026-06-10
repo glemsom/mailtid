@@ -35,4 +35,25 @@ export function runMigrations(db: Database.Database): void {
       created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id              INTEGER PRIMARY KEY CHECK (id = 1),
+      dietary_pattern TEXT    NOT NULL DEFAULT 'omnivore',
+      allergies_json  TEXT    NOT NULL DEFAULT '[]',
+      dislikes        TEXT    NOT NULL DEFAULT ''
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS model_cache (
+      model_id     TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      tier         TEXT NOT NULL CHECK (tier IN ('free', 'paid'))
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS active_model (
+      id    INTEGER PRIMARY KEY CHECK (id = 1),
+      model TEXT
+    );
+  `);
 }

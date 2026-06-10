@@ -4,6 +4,8 @@ import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { FilterStateRepository } from "../../src/db/filter-state.js";
 import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
+import { ProfileRepository } from "../../src/db/profile.js";
+import { SettingsRepository } from "../../src/db/settings.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
@@ -14,6 +16,10 @@ export interface TestDeps {
   llm: MockLLMClient;
   db: Database.Database;
   month: number;
+}
+
+async function stubRefreshModelCache(): Promise<string> {
+  return "OK (test stub)";
 }
 
 /**
@@ -37,12 +43,16 @@ export function makeTestDeps(opts: {
   const seasonality = new SeasonalityRepository(db);
   const filterState = new FilterStateRepository(db);
   const customIngredients = new CustomIngredientsRepository(db);
+  const profile = new ProfileRepository(db);
+  const settings = new SettingsRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
   const inspiration = new InspirationService(
     seasonality,
     llm,
     () => opts.month,
     { filterState, customIngredients },
+    profile,
+    settings,
   );
   const recipe = new RecipeService(seasonality, llm, () => opts.month);
   return {
@@ -50,9 +60,12 @@ export function makeTestDeps(opts: {
       seasonality,
       filterState,
       customIngredients,
+      profile,
+      settings,
       inspiration,
       recipe,
       monthProvider: () => opts.month,
+      refreshModelCache: stubRefreshModelCache,
     },
     llm,
     db,

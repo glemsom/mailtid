@@ -93,4 +93,32 @@ describe("POST /api/inspiration", () => {
     expect(prompt).toContain("Filtreringskrav");
     expect(prompt).toContain("Ris");
   });
+
+  test("includes the user profile in the prompt when set", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    deps.profile.save({
+      dietaryPattern: "vegetarian",
+      allergies: ["Mælk"],
+      dislikes: "svampe",
+    });
+    const app = createApp(deps);
+
+    await app.request("http://localhost/api/inspiration", { method: "POST" });
+
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).toContain("Kostprofil");
+    expect(prompt).toContain("vegetarian");
+    expect(prompt).toContain("Mælk");
+    expect(prompt).toContain("svampe");
+  });
+
+  test("no profile section when profile is empty", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    const app = createApp(deps);
+
+    await app.request("http://localhost/api/inspiration", { method: "POST" });
+
+    const prompt = llm.prompts[0] ?? "";
+    expect(prompt).not.toContain("Kostprofil");
+  });
 });

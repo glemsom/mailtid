@@ -6,9 +6,12 @@ import { importSeasonalitySeed } from "../db/seed.js";
 import { SeasonalityRepository } from "../db/seasonality.js";
 import { FilterStateRepository } from "../db/filter-state.js";
 import { CustomIngredientsRepository } from "../db/custom-ingredients.js";
+import { ProfileRepository } from "../db/profile.js";
+import { SettingsRepository } from "../db/settings.js";
 import { InspirationService } from "../inspiration/service.js";
 import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
+import { refreshModelCache } from "../llm/models.js";
 import type { LLMClient } from "../llm/client.js";
 import type { AppDeps } from "./app.js";
 import type { MailtidConfig } from "./config.js";
@@ -60,21 +63,26 @@ export function buildAppDeps(
   const seasonality = new SeasonalityRepository(db);
   const filterState = new FilterStateRepository(db);
   const customIngredients = new CustomIngredientsRepository(db);
+  const profile = new ProfileRepository(db);
+  const settings = new SettingsRepository(db);
   const llm = options.llm ?? new RealLLMClient(config.opencodeApiKey);
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
   const inspiration = new InspirationService(seasonality, llm, monthProvider, {
     filterState,
     customIngredients,
-  });
+  }, profile, settings);
   const recipe = new RecipeService(seasonality, llm, monthProvider);
 
   return {
     seasonality,
     filterState,
     customIngredients,
+    profile,
+    settings,
     inspiration,
     recipe,
     monthProvider,
+    refreshModelCache: () => refreshModelCache(config.opencodeApiKey, settings),
   };
 }

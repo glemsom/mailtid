@@ -69,7 +69,10 @@ export function renderHomePage(data: HomePageData): string {
 </head>
 <body>
   <header>
-    <h1>Mailtid</h1>
+    <div class="nav">
+      <h1>Mailtid</h1>
+      <a href="/indstillinger">Indstillinger</a>
+    </div>
     <p class="tagline">Forslag til aftensmad — dansk, i sæson, til dig.</p>
   </header>
 

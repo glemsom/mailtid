@@ -1,4 +1,5 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
+import type { UserProfile } from "../db/profile.js";
 
 /**
  * The number of short-form Meal Inspirations a single home-screen
@@ -92,6 +93,7 @@ export function buildShortFormPrompt(
   month: number,
   inSeason: readonly SeasonalityIngredient[],
   filter: ShortFormFilter = EMPTY_SHORT_FORM_FILTER,
+  profile?: UserProfile,
 ): string {
   const monthName = danishMonthName(month);
   const ingredientList = inSeason.map((i) => i.nameDa).join(", ");
@@ -113,6 +115,27 @@ export function buildShortFormPrompt(
     `Brug KUN råvarer fra denne liste: ${ingredientList}.`,
     "Listen er hårdkodet — du må ikke vælge råvarer, der ikke er på listen.",
   ];
+
+  if (profile) {
+    lines.push("", "# Kostprofil");
+    lines.push(
+      `- Kosttype: ${profile.dietaryPattern}.`,
+      "  Du må KUN foreslå retter, der passer til denne kosttype.",
+    );
+    if (profile.allergies.length > 0) {
+      const allergyList = profile.allergies.join(", ");
+      lines.push(
+        `- Allergier (må ikke indeholde): ${allergyList}.`,
+        "  Ingen af disse ingredienser må optræde i forslagene.",
+      );
+    }
+    if (profile.dislikes.length > 0) {
+      lines.push(
+        `- Undgå helst: ${profile.dislikes}.`,
+        "  Undgå disse råvarer, når det er muligt, men de er ikke absolut forbudte.",
+      );
+    }
+  }
 
   if (
     filter.inSeasonIncludes.length > 0 ||

@@ -5,9 +5,12 @@ import { Hono } from "hono";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
+import type { ProfileRepository } from "../db/profile.js";
+import type { SettingsRepository } from "../db/settings.js";
 import type { InspirationService } from "../inspiration/service.js";
 import type { RecipeService } from "../inspiration/recipe-service.js";
 import { renderHomePage } from "./home-page.js";
+import { renderSettingsPage } from "./settings-page.js";
 
 /**
  * Resolve the path to the bundled `static/` directory at build time.
@@ -37,6 +40,16 @@ export interface AppDeps {
   filterState: FilterStateRepository;
   /** Read/write access to the user's custom mandatory ingredients. */
   customIngredients: CustomIngredientsRepository;
+  /** Read/write access to the user's dietary profile. */
+  profile: ProfileRepository;
+  /** Read/write access to settings (active model + model cache). */
+  settings: SettingsRepository;
+  /**
+   * Refresh the cached model list from the OpenCode Go API.
+   * No-op in tests; wired to the real fetch in production.
+   * Returns a status message string.
+   */
+  refreshModelCache?: () => Promise<string>;
   /** Business logic for the 5-meal home-screen call. */
   inspiration: InspirationService;
   /** Business logic for the full-recipe card-tap call. */
@@ -66,6 +79,21 @@ export function createApp(deps: AppDeps): Hono {
     const custom = deps.customIngredients.list();
     return c.html(
       renderHomePage({ month, inSeason, filter, custom }),
+    );
+  });
+
+  /**
+   * `GET /indstillinger` — the in-app settings page. Server-
+   * rendered so the saved profile and model selection are visible
+   * immediately without a JS round-trip.
+   */
+  app.get("/indstillinger", (c) => {
+    return c.html(
+      renderSettingsPage({
+        profile: deps.profile.find(),
+        models: deps.settings.listModels(),
+        activeModel: deps.settings.getActiveModel(),
+      }),
     );
   });
 
@@ -254,6 +282,105 @@ export function createApp(deps: AppDeps): Hono {
     }
     deps.filterState.save({ includes: obj.includes, excludes: obj.excludes });
     return c.json({ includes: obj.includes, excludes: obj.excludes });
+  });
+
+  /**
+   * `GET /api/models` — return the cached OpenCode Go model list.
+   * Grouped by tier (free first, then paid). Used by the model
+   * picker on the settings page.
+   */
+  app.get("/api/models", (c) => {
+    return c.json({ models: deps.settings.listModels() });
+  });
+
+  /**
+   * `PUT /api/settings` — persist the user's active model choice.
+   * Body: `{ "activeModel": "opencode-go/glm-5.1" }`.
+   */
+  app.put("/api/settings", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as { activeModel?: unknown };
+    if (typeof obj.activeModel !== "string" || obj.activeModel.length === 0) {
+      return c.json({ error: "activeModel must be a non-empty string" }, 400);
+    }
+    deps.settings.setActiveModel(obj.activeModel);
+    return c.json({ ok: true });
+  });
+
+  /**
+   * `POST /api/models/refresh` — force-refresh the cached model
+   * catalogue from the OpenCode Go API. Delegates to the injected
+   * {@link AppDeps.refreshModelCache}.
+   */
+  app.post("/api/models/refresh", async (c) => {
+    if (!deps.refreshModelCache) {
+      return c.json({ error: "model refresh not available" }, 503);
+    }
+    try {
+      const status = await deps.refreshModelCache();
+      return c.json({ ok: true, status });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 502);
+    }
+  });
+
+  /**
+   * `GET /api/profile` — return the user's dietary profile.
+   * Returns `{ profile: null }` when the profile has not been
+   * set yet (first-run signal for the home-screen banner).
+   */
+  app.get("/api/profile", (c) => {
+    return c.json({ profile: deps.profile.find() });
+  });
+
+  /**
+   * `PUT /api/profile` — update the user's dietary profile.
+   * Body: `{ dietaryPattern, allergies, dislikes }`.
+   * Validates dietary pattern and allergies against their
+   * fixed option sets. Returns the saved profile.
+   */
+  app.put("/api/profile", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const obj = body as {
+      dietaryPattern?: unknown;
+      allergies?: unknown;
+      dislikes?: unknown;
+    };
+    if (typeof obj.dietaryPattern !== "string") {
+      return c.json({ error: "dietaryPattern must be a string" }, 400);
+    }
+    if (!Array.isArray(obj.allergies)) {
+      return c.json({ error: "allergies must be an array" }, 400);
+    }
+    if (typeof obj.dislikes !== "string") {
+      return c.json({ error: "dislikes must be a string" }, 400);
+    }
+    try {
+      const profile = deps.profile.save({
+        dietaryPattern: obj.dietaryPattern,
+        allergies: obj.allergies as string[],
+        dislikes: obj.dislikes,
+      });
+      return c.json({ profile });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
+    }
   });
 
   return app;
