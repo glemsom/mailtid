@@ -13,7 +13,7 @@ Owned and built by Glenn Sommer.
 The user surface of Mailtid. The add-on runs a NodeJS HTTP server that
 serves its own web page, independent of Home Assistant's own UI.
 
-- **Port**: 8200
+- **Port**: 8210
 - **Scheme**: HTTP (no TLS). TLS termination is handled outside the add-on.
 - **Access**: not yet decided — assumed local network only until stated otherwise.
 
@@ -182,7 +182,7 @@ Configuration is split across two surfaces based on restart cost:
 - **Home Assistant add-on options** (container restart required):
   - `opencode_api_key` — password field, the OpenCode Go API key
   - `log_level` — `trace` / `debug` / `info` / `warn` / `error`
-  - `port` — number, default 8200
+  - `port` — number, default 8210
   - `default_language` — select, default `da`
 - **In-app settings page** (live, no restart):
   - Active model (dropdown populated from cached model list)

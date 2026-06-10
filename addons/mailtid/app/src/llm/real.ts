@@ -21,21 +21,33 @@ const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
  * through the official OpenAI Node SDK. Model IDs must be passed
  * with the `opencode-go/` prefix — the model catalogue fetched by
  * slice #7 will return ids already in that shape.
+ *
+ * The API key is accepted as either a static string or a
+ * zero-argument provider function. When a provider is used, the
+ * key is re-read before every `chat()` call, so the user can
+ * save or change the key through the in-app settings page without
+ * restarting the container.
  */
 export class RealLLMClient implements LLMClient {
   private readonly openai: OpenAI;
+  private readonly keyProvider: () => string;
 
   constructor(
-    private readonly apiKey: string,
+    apiKey: string | (() => string),
     private readonly defaultModel: string = DEFAULT_OPENCODE_GO_MODEL,
   ) {
+    this.keyProvider =
+      typeof apiKey === "function" ? apiKey : () => apiKey;
     this.openai = new OpenAI({
-      apiKey,
+      apiKey: this.keyProvider(),
       baseURL: OPENCODE_GO_BASE_URL,
     });
   }
 
   async chat(prompt: string, opts?: { model?: string }): Promise<string> {
+    // Re-read the key before every request so changes made through
+    // the in-app settings page take effect without a restart.
+    this.openai.apiKey = this.keyProvider();
     const model = opts?.model ?? this.defaultModel;
     const completion = await this.openai.chat.completions.create({
       model,

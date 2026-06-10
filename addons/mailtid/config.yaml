@@ -17,13 +17,13 @@ hassio_api: false
 homeassistant_api: false
 host_network: false
 ports:
-  8200/tcp: 8200
+  8210/tcp: 8210
 ports_description:
-  8200/tcp: Web UI
+  8210/tcp: Web UI
 options:
   opencode_api_key: ""
   log_level: "info"
-  port: 8200
+  port: 8210
   default_language: "da"
 schema:
   opencode_api_key: "password"

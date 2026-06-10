@@ -24,7 +24,7 @@ The script:
    non-zero, the error is **surfaced to stderr** with the command's
    own output; the script does not abort at this step because the
    Supervisor also auto-rebuilds on next add-on start.
-4. Runs `bin/smoke-test.sh http://192.168.50.171:8200/ Mailtid` —
+4. Runs `bin/smoke-test.sh http://192.168.50.171:8210/ Mailtid` —
    a post-deploy smoke test that asserts the add-on's home screen
    is reachable and responds with `Mailtid`. **This is the real
    gate for a successful deploy.** If the smoke test fails, the
@@ -53,10 +53,10 @@ The script is invoked from `bin/deploy.sh` and is independently
 executable for ad-hoc checks:
 
 ```sh
-bin/smoke-test.sh http://192.168.50.171:8200/ Mailtid
+bin/smoke-test.sh http://192.168.50.171:8210/ Mailtid
 ```
 
-The deploy script targets port `8200` by default; override with
+The deploy script targets port `8210` by default; override with
 `SMOKE_PORT` if the add-on's port is set to something else in the
 HA add-on options.
 
@@ -87,5 +87,5 @@ MAILTID_OPTIONS_FILE=./dev-options.json npm run dev
 The same JSON shape is what the HA Supervisor writes into
 `/data/options.json` inside the container. The standalone smoke
 test is useful here too: once `npm run dev` is serving on
-`http://localhost:8200/`, run `bin/smoke-test.sh
-http://localhost:8200/ Mailtid` to confirm the server is up.
+`http://localhost:8210/`, run `bin/smoke-test.sh
+http://localhost:8210/ Mailtid` to confirm the server is up.

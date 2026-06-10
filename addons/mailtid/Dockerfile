@@ -14,5 +14,5 @@ COPY app/data ./data
 COPY app/static ./static
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
-EXPOSE 8200
+EXPOSE 8210
 ENTRYPOINT ["/run.sh"]

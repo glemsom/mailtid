@@ -17,6 +17,59 @@ describe("refreshModelCache", () => {
     expect(status).toMatch(/nøgle/i);
     expect(settings.listModels()).toHaveLength(0);
   });
+
+  test("uses the apiKey argument for the Authorization header", async () => {
+    // Regression: the caller (deps.ts) must pass a live key, not a
+    // stale captured empty string. Verify the key makes it into the
+    // outgoing fetch call.
+    const settings = makeSettings();
+    const originalFetch = globalThis.fetch;
+    let authHeader: string | null = null;
+    try {
+      globalThis.fetch = ((_url: string, init?: RequestInit) => {
+        authHeader = (init?.headers as Record<string, string> | undefined)
+          ?.authorization ?? null;
+        return Promise.resolve(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+      }) as typeof globalThis.fetch;
+      await refreshModelCache("sk-test-key", settings);
+      expect(authHeader).toBe("Bearer sk-test-key");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("survives model entries with missing endpoint", async () => {
+    // Regression: OpenCode Go may return model entries that lack an
+    // `endpoint` field (e.g. provider-level metadata entries).
+    // The Anthropic filter must not throw on `undefined` endpoints.
+    const settings = makeSettings();
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = (() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: [
+                { id: "no-endpoint", display_name: "No EP" },
+                { id: "normal", endpoint: "/v1/chat/completions", display_name: "Normal" },
+                { id: "anthropic", endpoint: "/v1/messages", display_name: "Anthropic" },
+              ],
+            }),
+            { status: 200 },
+          ),
+        )) as typeof globalThis.fetch;
+      const status = await refreshModelCache("sk-test-key", settings);
+      expect(status).toMatch(/Hentet 2 modeller/);
+      const cached = settings.listModels();
+      expect(cached).toHaveLength(2);
+      const ids = cached.map((m) => m.modelId);
+      expect(ids).toContain("no-endpoint");
+      expect(ids).toContain("normal");
+      expect(ids).not.toContain("anthropic");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 /**

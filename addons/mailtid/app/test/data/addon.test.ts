@@ -23,8 +23,8 @@ describe("addons/mailtid/config.yaml", () => {
     expect(config.host_network).toBe(false);
   });
 
-  test("exposes the web UI on port 8200", () => {
-    expect(config.ports).toEqual({ "8200/tcp": 8200 });
+  test("exposes the web UI on port 8210", () => {
+    expect(config.ports).toEqual({ "8210/tcp": 8210 });
   });
 
   test("targets aarch64, amd64, and armv7", () => {
@@ -35,7 +35,7 @@ describe("addons/mailtid/config.yaml", () => {
     const opts = config.options as Record<string, unknown>;
     expect(opts.opencode_api_key).toBe("");
     expect(opts.log_level).toBe("info");
-    expect(opts.port).toBe(8200);
+    expect(opts.port).toBe(8210);
     expect(opts.default_language).toBe("da");
   });
 

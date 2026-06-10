@@ -77,10 +77,10 @@ catalogue.
   repository. The package lives at
   `addons/mailtid/` in the repo and is installed by the HA
   Supervisor from the host's own `addons/` directory.
-- **Add-on metadata.** `slug: mailtid`, port `8200`, `arch: aarch64 |
+- **Add-on metadata.** `slug: mailtid`, port `8210`, `arch: aarch64 |
   amd64 | armv7`, `init: false`, `startup: services`, `boot: auto`,
   `hassio_api: false`, `homeassistant_api: false`. Network is the
-  default (bridge) with port mapping `8200:8200`; `host_network: false`.
+  default (bridge) with port mapping `8210:8210`; `host_network: false`.
 - **NodeJS app shape.** A single NodeJS process running a small
   HTTP server. TypeScript. Framework to be chosen at slice 1
   (Hono is the leading candidate, but the choice is implementation,
@@ -107,7 +107,7 @@ catalogue.
   into SQLite on first start. Live overrides via the admin UI live
   in the DB. "Nulstil til seed" wipes the override and re-imports.
 - **Add-on options (HA restart required).** `opencode_api_key`
-  (password), `log_level` (select), `port` (number, default 8200),
+  (password), `log_level` (select), `port` (number, default 8210),
   `default_language` (select, default `da`).
 - **In-app settings (live).** Active model, user profile (dietary
   pattern, allergies, dislikes), custom mandatory ingredients

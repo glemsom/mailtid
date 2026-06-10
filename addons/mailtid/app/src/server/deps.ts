@@ -69,7 +69,9 @@ export function buildAppDeps(
   const settings = new SettingsRepository(db);
   const favourites = new FavouritesRepository(db);
   const cookedHistory = new CookedHistoryRepository(db);
-  const llm = options.llm ?? new RealLLMClient(config.opencodeApiKey);
+  const llm =
+    options.llm ??
+    new RealLLMClient(() => config.opencodeApiKey || settings.getApiKey());
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
   const inspiration = new InspirationService(seasonality, llm, monthProvider, {
@@ -86,10 +88,15 @@ export function buildAppDeps(
     settings,
     favourites,
     cookedHistory,
-    hasApiKey: () => config.opencodeApiKey.length > 0 || settings.getApiKey().length > 0,
+    hasApiKey: () =>
+      config.opencodeApiKey.length > 0 || settings.getApiKey().length > 0,
     inspiration,
     recipe,
     monthProvider,
-    refreshModelCache: () => refreshModelCache(config.opencodeApiKey, settings),
+    refreshModelCache: () =>
+      refreshModelCache(
+        config.opencodeApiKey || settings.getApiKey(),
+        settings,
+      ),
   };
 }

@@ -17,7 +17,7 @@ cd addons/mailtid
 docker build -t mailtid .
 
 # Kør containeren (options.json er valgfri — defaults bruges hvis den mangler)
-docker run --rm -p 8200:8200 mailtid
+docker run --rm -p 8210:8210 mailtid
 ```
 
 ## Deploy til Home Assistant

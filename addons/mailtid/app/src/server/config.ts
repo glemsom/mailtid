@@ -25,7 +25,7 @@ export interface MailtidConfig {
   opencodeApiKey: string;
   /** Logger threshold. Defaults to "info". */
   logLevel: LogLevel;
-  /** HTTP port to listen on. Defaults to 8200. */
+  /** HTTP port to listen on. Defaults to 8210. */
   port: number;
   /** UI / LLM language. Defaults to "da". */
   defaultLanguage: string;
@@ -64,7 +64,7 @@ export function defaults(): MailtidConfig {
   return {
     opencodeApiKey: "",
     logLevel: "info",
-    port: 8200,
+    port: 8210,
     defaultLanguage: "da",
   };
 }
@@ -78,7 +78,7 @@ function parseLogLevel(value: string | undefined): LogLevel {
 }
 
 function parsePortNumber(value: number | undefined): number {
-  if (typeof value !== "number") return 8200;
-  if (!Number.isFinite(value) || value <= 0 || value > 65535) return 8200;
+  if (typeof value !== "number") return 8210;
+  if (!Number.isFinite(value) || value <= 0 || value > 65535) return 8210;
   return Math.floor(value);
 }

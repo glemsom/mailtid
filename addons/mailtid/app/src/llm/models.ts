@@ -86,7 +86,10 @@ export async function refreshModelCache(
  * `/zen/go/v1/messages`). `chat/completions` is the complementary
  * kept endpoint — we check directly against the segment.
  */
-function isAnthropicEndpoint(raw: string): boolean {
+function isAnthropicEndpoint(raw: string | undefined): boolean {
+  // Endpoint may be absent for provider-level metadata entries.
+  // Without an endpoint, the model can't reach the Anthropic API.
+  if (!raw) return false;
   // Normalise: strip trailing slash, split into segments.
   const segments = raw.replace(/\/+$/, "").split("/");
   const last = segments[segments.length - 1];

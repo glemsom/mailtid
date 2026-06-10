@@ -85,7 +85,7 @@ describe("loadConfigFromOptionsJson", () => {
     expect(loadConfigFromOptionsJson(json)).toEqual({
       opencodeApiKey: "",
       logLevel: "info",
-      port: 8200,
+      port: 8210,
       defaultLanguage: "da",
     });
   });

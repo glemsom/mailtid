@@ -11,7 +11,7 @@ din husstands profil og hvad du har lavet de sidste 14 dage.
    Mailtid nu optræde. Klik **Installer**.
 3. Angiv en OpenCode Go API-nøgle under **Konfiguration**.
 4. Start add-on'et. Web-UI'en er tilgængelig på
-   `http://<ha-host>:8200`.
+   `http://<ha-host>:8210`.
 
 ## Konfiguration
 
@@ -19,7 +19,7 @@ din husstands profil og hvad du har lavet de sidste 14 dage.
 | --- | --- | --- | --- |
 | `opencode_api_key` | password | (tom) | OpenCode Go API-nøgle. |
 | `log_level` | select | `info` | Logger-tærskel. |
-| `port` | number | `8200` | HTTP-port. |
+| `port` | number | `8210` | HTTP-port. |
 | `default_language` | select | `da` | UI- og prompt-sprog. |
 
 Ændringer kræver genstart af add-on'et.
