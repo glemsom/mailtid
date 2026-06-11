@@ -30,4 +30,3 @@ schema:
   log_level: "list(trace|debug|info|warn|error)"
   port: "port"
   default_language: "list(da|en)"
-image: "ghcr.io/local/mailtid"

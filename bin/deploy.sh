@@ -33,35 +33,52 @@ if [[ ! -x "${SMOKE_SCRIPT}" ]]; then
   exit 1
 fi
 
-if command -v sshpass >/dev/null 2>&1; then
-  PASSWORD="${MAILTID_DEPLOY_PASS:-}"
-  if [[ -z "${PASSWORD}" && -f "${REPO_ROOT}/.pass" ]]; then
-    PASSWORD="$(tr -d '\n' < "${REPO_ROOT}/.pass")"
-  fi
-  if [[ -z "${PASSWORD}" ]]; then
-    echo "deploy: ssh password not provided (set MAILTID_DEPLOY_PASS or write .pass)" >&2
-    exit 1
-  fi
-  export SSHPASS="${PASSWORD}"
-  SCP_SSH_OPTS=(-o StrictHostKeyChecking=accept-new -P "${SSH_PORT}")
-  REBUILD_SSH_CMD=(sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" "ha addons rebuild mailtid")
-elif [[ -n "${MAILTID_DEPLOY_PASS:-}" || -f "${REPO_ROOT}/.pass" ]]; then
-  echo "deploy: sshpass not installed but a password was provided." >&2
-  echo "        Install sshpass, or use ssh-agent / public-key auth." >&2
-  exit 1
-else
-  SCP_SSH_OPTS=(-o StrictHostKeyChecking=accept-new -P "${SSH_PORT}")
-  REBUILD_SSH_CMD=(ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" "ha addons rebuild mailtid")
+# --- resolve password and SSH wrapper ---
+SSHPASS_SH="${REPO_ROOT}/bin/_sshpass.sh"
+PASSWORD="${MAILTID_DEPLOY_PASS:-}"
+if [[ -z "${PASSWORD}" && -f "${REPO_ROOT}/.pass" ]]; then
+  PASSWORD="$(tr -d '\n' < "${REPO_ROOT}/.pass")"
 fi
+
+SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o Port="${SSH_PORT}")
+
+if command -v sshpass >/dev/null 2>&1 && [[ -n "${PASSWORD}" ]]; then
+  export SSHPASS="${PASSWORD}"
+  RUN=(sshpass -e)
+elif [[ -n "${PASSWORD}" ]]; then
+  # Fallback when sshpass is missing: use SSH_ASKPASS helper
+  RUN=("${SSHPASS_SH}" "${PASSWORD}")
+elif [[ -z "${PASSWORD}" ]]; then
+  RUN=()
+fi
+
+# Build TypeScript locally (produces dist/ needed by Dockerfile)
+echo "deploy: building TypeScript locally"
+( cd "${SRC}/app" && npm run build ) || {
+  echo "deploy: local build failed" >&2
+  exit 1
+}
 
 echo "deploy: scp ${SRC} -> ${DST_HOST}:${DST_PATH}"
 # Ensure the remote directory exists
-ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" mkdir -p "${DST_PATH}"
-if command -v sshpass >/dev/null 2>&1 && [[ -n "${SSHPASS:-}" ]]; then
-  sshpass -e scp -r "${SCP_SSH_OPTS[@]}" "${SRC}"/* "${DST_HOST}:${DST_PATH}/"
-else
-  scp -r "${SCP_SSH_OPTS[@]}" "${SRC}"/* "${DST_HOST}:${DST_PATH}/"
+"${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" mkdir -p "${DST_PATH}"
+# Transfer non-dot files and dotfiles (e.g. .dockerignore)
+"${RUN[@]}" scp -r "${SSH_OPTS[@]}" "${SRC}"/* "${SRC}"/.[!.]* "${DST_HOST}:${DST_PATH}/" 2>/dev/null || "${RUN[@]}" scp -r "${SSH_OPTS[@]}" "${SRC}"/* "${DST_HOST}:${DST_PATH}/"
+
+# Reload the store so Supervisor discovers the local add-on (needed after
+# first deploy and after Supervisor restarts).
+echo "deploy: reloading store to discover local add-on"
+"${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" ha store reload >/dev/null 2>&1 || true
+
+# If the add-on is not yet installed, install it (first-time deployment).
+# The info command returns YAML; an uninstalled app shows "state: unknown".
+app_state=$("${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" "ha apps info local_mailtid 2>&1 | grep '^state:' | cut -d: -f2 | tr -d ' '" || true)
+if [[ "${app_state}" == "unknown" ]]; then
+  echo "deploy: first-time install of local_mailtid"
+  "${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" ha apps install local_mailtid
 fi
+
+REBUILD_SSH_CMD=("${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" "ha apps rebuild local_mailtid")
 
 echo "deploy: triggering Supervisor rebuild"
 # Surface rebuild failures loudly (to stderr) but do not abort the
@@ -77,6 +94,15 @@ if [[ ${rebuild_rc} -ne 0 ]]; then
   echo "${rebuild_output}" >&2
   echo "deploy: continuing to smoke test (Supervisor may auto-rebuild on next start)." >&2
 fi
+
+# Ensure the add-on is started (rebuild builds the image but may not
+# restart the container if it was stopped or in error state).
+echo "deploy: starting add-on"
+"${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" ha apps start local_mailtid >/dev/null 2>&1 || true
+
+# Wait briefly for the app to bind its port
+echo "deploy: waiting for app to start..."
+sleep 5
 
 echo "deploy: smoke test ${SMOKE_URL}"
 if ! "${SMOKE_SCRIPT}" "${SMOKE_URL}" "Mailtid"; then
