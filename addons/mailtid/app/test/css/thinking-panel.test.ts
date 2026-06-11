@@ -83,4 +83,31 @@ describe("thinking panel CSS (kitchen thought visual identity)", () => {
     );
     expect(animMedia).toBeTruthy();
   });
+
+  test("thinking-chip for highlighted ingredient names has a subtle pill style", () => {
+    const chipBody = ruleBody(".thinking-chip");
+    expect(chipBody).toBeTruthy();
+
+    // Must be inline (not block) so it flows with surrounding text.
+    expect(chipBody).toMatch(/display:\s*inline/);
+
+    // Must use a subtle background, not the full chip background.
+    expect(chipBody).toMatch(/background/);
+
+    // Must NOT use var(--card-bg) or var(--neutral) — should be subtle.
+    expect(chipBody).not.toMatch(/background:\s*var\(--card-bg\)/);
+    expect(chipBody).not.toMatch(/background:\s*var\(--neutral\)/);
+
+    // Should have a subdued pill shape (border-radius, small padding).
+    expect(chipBody).toMatch(/border-radius/);
+  });
+
+  test("thinking-chip overrides italic from thinking-tokens to stand out", () => {
+    const chipBody = ruleBody(".thinking-chip");
+    expect(chipBody).toBeTruthy();
+
+    // Should explicitly set font-style to normal so ingredients
+    // are readable inside the italic reasoning text.
+    expect(chipBody).toMatch(/font-style:\s*normal/);
+  });
 });

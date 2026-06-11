@@ -271,4 +271,13 @@ describe("GET /static/:filename", () => {
     // The chips container exposes the count as a data attribute.
     expect(html).toMatch(/data-inseason-count="\d+"/);
   });
+
+  test("in-season chips carry data-name for ingredient highlighting in client JS", async () => {
+    const html = await homeHtml(6);
+
+    // Each .chip button must have a data-name attribute so the
+    // client-side showThinking() can read ingredient names from
+    // the DOM and highlight them in the reasoning stream.
+    expect(html).toMatch(/data-name="[^"]+"/);
+  });
 });

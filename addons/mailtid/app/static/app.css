@@ -359,6 +359,17 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   border-top: 1px solid var(--card-border);
 }
 
+.thinking-chip {
+  display: inline;
+  background: rgba(45, 106, 79, 0.1);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0px 4px;
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* ---- Summary line below meals ---- */
 .thinking-summary-line {
   grid-column: 1 / -1;

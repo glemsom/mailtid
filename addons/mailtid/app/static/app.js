@@ -77,13 +77,83 @@ function showPhase(phase) {
 }
 
 /**
- * Append a reasoning token to the collapsed raw-token area.
+ * Accumulated raw reasoning text, kept in a module-level variable
+ * so we can re-scan for ingredient matches on every token append.
+ */
+let thinkingRawText = "";
+
+/**
+ * Read in-season ingredient names from the DOM chip buttons.
+ * Each .chip button has a data-name attribute with the Danish
+ * ingredient name (e.g. "Kartofler", "Gulerødder").
+ */
+function getIngredientNames() {
+  const chips = document.querySelectorAll("#chips .chip");
+  const names = [];
+  for (const chip of chips) {
+    const name = chip.dataset.name;
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Escape characters that have special meaning in regular expressions.
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Scan the accumulated reasoning text and wrap matching in-season
+ * ingredient names in <span class="thinking-chip"> elements.
+ *
+ * Matching is case-insensitive and whole-word only — "kartofler"
+ * matches "Kartofler" but not "kartoffelmos". Unicode-aware word
+ * boundaries (\p{L}\p{N}) ensure Danish letters like æ, ø, å are
+ * treated as word characters.
+ *
+ * The returned string is safe for innerHTML assignment: non-matching
+ * text is HTML-escaped, and matched ingredient names are wrapped in
+ * spans.
+ */
+function highlightIngredients(safeText, ingredientNames) {
+  if (ingredientNames.length === 0) return safeText;
+
+  // Sort longest-first so "kartofler" matches before "kartoffel"
+  // if both happen to be in the list.
+  const sorted = [...ingredientNames].sort((a, b) => b.length - a.length);
+  const escaped = sorted.map(escapeRegex);
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])(${escaped.join('|')})(?=[^\\p{L}\\p{N}]|$)`,
+    'giu'
+  );
+
+  return safeText.replace(
+    pattern,
+    '$1<span class="thinking-chip">$2</span>'
+  );
+}
+
+/**
+ * Append a reasoning token to the collapsed raw-token area and
+ * highlight in-season ingredient names that appear in the text.
  */
 function showThinking(token) {
   const tokens = document.getElementById("thinking-tokens");
-  if (tokens) {
-    tokens.textContent += token;
+  if (!tokens) return;
+
+  thinkingRawText += token;
+
+  // Always escape HTML first so the LLM output can never inject markup.
+  let html = escapeHtml(thinkingRawText);
+
+  const ingredientNames = getIngredientNames();
+  if (ingredientNames.length > 0) {
+    html = highlightIngredients(html, ingredientNames);
   }
+
+  tokens.innerHTML = html;
 }
 
 /**
@@ -127,11 +197,13 @@ function clearThinking() {
     phaseEl.classList.remove("active", "finished");
   }
   if (tokens) {
-    tokens.textContent = "";
+    tokens.innerHTML = "";
   }
   if (details) {
     details.open = false;
   }
+  // Reset accumulated reasoning text for the next inspiration call.
+  thinkingRawText = "";
   // Remove any summary line from a previous run.
   const existingSummary = document.querySelector(".thinking-summary-line");
   if (existingSummary) existingSummary.remove();
