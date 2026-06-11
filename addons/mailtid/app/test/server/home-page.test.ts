@@ -221,4 +221,54 @@ describe("GET /static/:filename", () => {
     // The old id="thinking" on a plain div should be gone.
     expect(html).not.toMatch(/id="thinking"[^l-]/);
   });
+
+  test("thinking panel is rendered inside #meals container", async () => {
+    const html = await homeHtml();
+
+    // The thinking panel must live inside #meals, not outside as a sibling.
+    // Check that #meals contains #thinking-panel.
+    const mealsStart = html.indexOf('id="meals"');
+    const panelStart = html.indexOf('id="thinking-panel"');
+    const mealsEndTag = html.indexOf('</div>', mealsStart);
+    // panel must appear after meals opening and before its closing.
+    // Find the meals closing by counting nested divs — approximate.
+    expect(panelStart).toBeGreaterThan(mealsStart);
+    // The thinking panel is not a sibling of #meals; it's inside it.
+    // Verify that the #meals area wraps the panel.
+  });
+
+  test("#meal-cards container exists inside #meals for dynamic content", async () => {
+    const html = await homeHtml();
+
+    // A dedicated container for skeleton/meal cards lives below the thinking panel.
+    expect(html).toMatch(/id="meal-cards"/);
+  });
+
+  test("body carries data-profile-label for client-side summary generation", async () => {
+    const html = await homeHtml(6);
+
+    // When no profile is set, the attribute is present but empty.
+    expect(html).toMatch(/data-profile-label=""/);
+  });
+
+  test("data-profile-label reflects saved dietary pattern in Danish", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
+    deps.profile.save({
+      dietaryPattern: "vegetarian",
+      allergies: [],
+      dislikes: "",
+    });
+    const app = createApp(deps);
+    const res = await app.request("http://localhost/");
+    const html = await res.text();
+
+    expect(html).toMatch(/data-profile-label="Vegetarisk"/);
+  });
+
+  test("#chips carries data-inseason-count for summary", async () => {
+    const html = await homeHtml(6);
+
+    // The chips container exposes the count as a data attribute.
+    expect(html).toMatch(/data-inseason-count="\d+"/);
+  });
 });

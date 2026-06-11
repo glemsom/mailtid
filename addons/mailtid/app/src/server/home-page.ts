@@ -4,6 +4,14 @@ import type { CustomIngredient } from "../db/custom-ingredients.js";
 import type { UserProfile } from "../db/profile.js";
 import { escapeHtml, danishMonthName } from "./html.js";
 
+/** Dietary pattern display names in Danish. */
+const DIETARY_LABELS: Record<string, string> = {
+  omnivore: "Altspisende",
+  pescatarian: "Pescetar",
+  vegetarian: "Vegetarisk",
+  vegan: "Vegansk",
+};
+
 /**
  * The data the home page needs to render. Assembled by the Hono
  * handler so the template stays a pure function of its inputs.
@@ -79,6 +87,9 @@ export function renderHomePage(data: HomePageData): string {
 </div>`;
 
   const monthName = danishMonthName(data.month);
+  const profileLabel = data.profile
+    ? DIETARY_LABELS[data.profile.dietaryPattern] ?? ""
+    : "";
 
   return `<!doctype html>
 <html lang="da">
@@ -88,7 +99,7 @@ export function renderHomePage(data: HomePageData): string {
   <title>Mailtid — dansk madinspiration</title>
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body data-profile-label="${escapeHtml(profileLabel)}">
   <header>
     <div class="nav">
       <h1>Mailtid</h1>
@@ -106,7 +117,7 @@ export function renderHomePage(data: HomePageData): string {
   <section id="filters" aria-label="Filtrer på råvarer i sæson">
     <h2>Råvarer i sæson — ${escapeHtml(monthName)}</h2>
     <p class="hint">Tryk på en råvare for at skifte mellem <em>neutral</em>, <em>skal med</em> og <em>ikke med</em>.</p>
-    <div id="chips" class="chips">${chipHtml}</div>
+    <div id="chips" class="chips" data-inseason-count="${data.inSeason.length}">${chipHtml}</div>
 
     <h2>Skal med (rester fra køleskabet)</h2>
     <form id="custom-form">
@@ -118,18 +129,20 @@ export function renderHomePage(data: HomePageData): string {
 
   <section id="results" aria-label="Forslag">
     <button id="refresh" type="button" class="primary">Vis 5 nye</button>
-    <div id="meals" class="meals"></div>
-    <p id="status" class="status" role="status" aria-live="polite"></p>
-    <div id="thinking-panel" class="thinking-panel" hidden>
-      <div class="thinking-header">
-        <span id="thinking-phase" class="thinking-phase" role="status" aria-live="polite"></span>
-        <button id="thinking-dismiss" class="thinking-dismiss" type="button" aria-label="Skjul tænkeboks">Skjul ▲</button>
+    <div id="meals" class="meals">
+      <div id="thinking-panel" class="thinking-panel" hidden>
+        <div class="thinking-header">
+          <span id="thinking-phase" class="thinking-phase" role="status" aria-live="polite"></span>
+          <button id="thinking-dismiss" class="thinking-dismiss" type="button" aria-label="Skjul tænkeboks">Skjul ▲</button>
+        </div>
+        <details id="thinking-details" class="thinking-details">
+          <summary class="thinking-summary">Hvad overvejer AI&apos;en? ▸</summary>
+          <div id="thinking-tokens" class="thinking-tokens"></div>
+        </details>
       </div>
-      <details id="thinking-details" class="thinking-details">
-        <summary class="thinking-summary">Hvad overvejer AI&apos;en? ▸</summary>
-        <div id="thinking-tokens" class="thinking-tokens"></div>
-      </details>
+      <div id="meal-cards"></div>
     </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
   </section>
 
   <script src="/static/app.js"></script>

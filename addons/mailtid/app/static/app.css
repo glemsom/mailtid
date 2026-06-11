@@ -277,8 +277,9 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  margin-top: 12px;
+  margin-bottom: 12px;
   overflow: hidden;
+  grid-column: 1 / -1;
 }
 .thinking-panel[hidden] {
   display: none;
@@ -351,6 +352,18 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   line-height: 1.6;
   max-height: 200px;
   overflow-y: auto;
+  border-top: 1px solid var(--card-border);
+}
+
+/* ---- Summary line below meals ---- */
+.thinking-summary-line {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  text-align: center;
+  padding: 12px 0 4px 0;
+  margin: 0;
   border-top: 1px solid var(--card-border);
 }
 

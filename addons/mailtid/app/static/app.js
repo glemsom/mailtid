@@ -132,14 +132,22 @@ function clearThinking() {
   if (details) {
     details.open = false;
   }
+  // Remove any summary line from a previous run.
+  const existingSummary = document.querySelector(".thinking-summary-line");
+  if (existingSummary) existingSummary.remove();
 }
 
 /**
  * Render 5 skeleton cards while the LLM call is in flight.
+ * Shows the thinking panel above the skeleton.
  */
 function renderSkeleton() {
   clearThinking();
-  const container = document.getElementById("meals");
+  // Show the thinking panel inside #meals.
+  const panel = document.getElementById("thinking-panel");
+  if (panel) panel.hidden = false;
+
+  const container = document.getElementById("meal-cards");
   if (!container) return;
   container.innerHTML = [1, 2, 3, 4, 5]
     .map(
@@ -155,6 +163,10 @@ function renderSkeleton() {
         `</article>`,
     )
     .join("");
+
+  // Remove any existing summary line from a previous run.
+  const existingSummary = document.querySelector(".thinking-summary-line");
+  if (existingSummary) existingSummary.remove();
 }
 
 /**
@@ -165,7 +177,7 @@ function renderSkeleton() {
 let recipeCache = {};
 
 function renderMeals(meals) {
-  const container = document.getElementById("meals");
+  const container = document.getElementById("meal-cards");
   if (!container) return;
   if (meals.length === 0) {
     container.innerHTML =
@@ -268,6 +280,9 @@ function renderMeals(meals) {
       }
     });
   }
+
+  // Show the one-line summary below the meals.
+  showSummary(meals.length);
 }
 
 /**
@@ -482,8 +497,15 @@ function wireRefresh() {
  * Show an error message with a retry button in the meals area.
  */
 function showError(message) {
-  const container = document.getElementById("meals");
+  const container = document.getElementById("meal-cards");
   if (!container) return;
+  // Hide the thinking panel on error.
+  const panel = document.getElementById("thinking-panel");
+  if (panel) panel.hidden = true;
+  // Remove any summary line.
+  const existingSummary = document.querySelector(".thinking-summary-line");
+  if (existingSummary) existingSummary.remove();
+
   container.innerHTML =
     `<div class="error-block">` +
     `<p>${escapeHtml(message)}</p>` +
@@ -496,6 +518,51 @@ function showError(message) {
       if (refresh) refresh.click();
     });
   }
+}
+
+/**
+ * Render a one-line summary below the meal cards after generation.
+ * Uses real counts from the DOM (in-season ingredients, active
+ * filters) and the user's dietary profile label.
+ */
+function showSummary(mealCount) {
+  const mealsEl = document.getElementById("meals");
+  if (!mealsEl) return;
+
+  // Remove any existing summary line.
+  const existing = mealsEl.querySelector(".thinking-summary-line");
+  if (existing) existing.remove();
+
+  const chips = document.querySelectorAll("#chips .chip");
+  const inSeasonCount = chips.length;
+  const activeFilterCount = Array.from(chips).filter(
+    (c) => c.dataset.state !== "neutral",
+  ).length;
+  const profileLabel =
+    document.body.getAttribute("data-profile-label") || "";
+
+  let text = `Fandt ${mealCount} forslag ud fra ${inSeasonCount} sæsonråvarer`;
+
+  const extras = [];
+  if (activeFilterCount > 0) {
+    extras.push(`${activeFilterCount} aktive filtre`);
+  }
+  if (profileLabel) {
+    extras.push(`din profil`);
+  }
+
+  if (extras.length === 2) {
+    text += `, ${extras[0]} og ${extras[1]}`;
+  } else if (extras.length === 1) {
+    text += ` og ${extras[0]}`;
+  }
+
+  text += ".";
+
+  const summaryEl = document.createElement("p");
+  summaryEl.className = "thinking-summary-line";
+  summaryEl.textContent = text;
+  mealsEl.appendChild(summaryEl);
 }
 
 function init() {
