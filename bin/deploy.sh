@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bin/deploy.sh — rsync addons/mailtid/ to the Home Assistant host,
+# bin/deploy.sh — scp addons/mailtid/ to the Home Assistant host,
 # trigger a Supervisor rebuild, and run a post-deploy smoke test
 # against the add-on's home screen.
 #
@@ -7,7 +7,7 @@
 # .pass in the repo root.
 #
 # Idempotent: safe to run repeatedly. Fails loudly with a non-zero
-# exit code if rsync cannot connect, if the Supervisor rebuild
+# exit code if scp cannot connect, if the Supervisor rebuild
 # command returns non-zero (the error is surfaced to stderr), or if
 # the post-deploy smoke test does not see the add-on respond with
 # "Mailtid" on its home screen.
@@ -43,24 +43,25 @@ if command -v sshpass >/dev/null 2>&1; then
     exit 1
   fi
   export SSHPASS="${PASSWORD}"
-  RSYNC_SSH="sshpass -e ssh -o StrictHostKeyChecking=accept-new -p ${SSH_PORT}"
+  SCP_SSH_OPTS=(-o StrictHostKeyChecking=accept-new -P "${SSH_PORT}")
   REBUILD_SSH_CMD=(sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" "ha addons rebuild mailtid")
 elif [[ -n "${MAILTID_DEPLOY_PASS:-}" || -f "${REPO_ROOT}/.pass" ]]; then
   echo "deploy: sshpass not installed but a password was provided." >&2
   echo "        Install sshpass, or use ssh-agent / public-key auth." >&2
   exit 1
 else
-  RSYNC_SSH="ssh -o StrictHostKeyChecking=accept-new -p ${SSH_PORT}"
+  SCP_SSH_OPTS=(-o StrictHostKeyChecking=accept-new -P "${SSH_PORT}")
   REBUILD_SSH_CMD=(ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" "ha addons rebuild mailtid")
 fi
 
-echo "deploy: rsync ${SRC} -> ${DST_HOST}:${DST_PATH}"
-rsync -a --delete \
-  -e "${RSYNC_SSH}" \
-  --exclude '.git' \
-  --exclude 'node_modules' \
-  --exclude 'dist' \
-  "${SRC}/" "${DST_HOST}:${DST_PATH}/"
+echo "deploy: scp ${SRC} -> ${DST_HOST}:${DST_PATH}"
+# Ensure the remote directory exists
+ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT}" "${DST_HOST}" mkdir -p "${DST_PATH}"
+if command -v sshpass >/dev/null 2>&1 && [[ -n "${SSHPASS:-}" ]]; then
+  sshpass -e scp -r "${SCP_SSH_OPTS[@]}" "${SRC}"/* "${DST_HOST}:${DST_PATH}/"
+else
+  scp -r "${SCP_SSH_OPTS[@]}" "${SRC}"/* "${DST_HOST}:${DST_PATH}/"
+fi
 
 echo "deploy: triggering Supervisor rebuild"
 # Surface rebuild failures loudly (to stderr) but do not abort the
