@@ -30,10 +30,11 @@ describe("buildShortFormPrompt", () => {
     }
   });
 
-  test("instructs the model to use only the in-season list", () => {
+  test("instructs the model to feature in-season ingredients as central, with other common ingredients allowed", () => {
     const prompt = buildShortFormPrompt(6, JUNE_INGREDIENTS);
 
-    expect(prompt.toLowerCase()).toMatch(/kun .*råvarer fra denne liste/);
+    expect(prompt.toLowerCase()).toMatch(/råvarer fra denne liste som centrale/);
+    expect(prompt.toLowerCase()).toMatch(/supplere med andre almindelige/);
   });
 
   test("asks for exactly 5 short-form Meal Inspirations", () => {

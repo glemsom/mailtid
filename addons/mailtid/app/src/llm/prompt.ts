@@ -83,7 +83,8 @@ export const EMPTY_SHORT_FORM_FILTER: ShortFormFilter = {
  *   1. Role / task — produce 5 short-form Meal Inspirations in Danish.
  *   2. Month — current Danish month name and 1-12 number.
  *   3. In-season ingredients — the comma-separated list of ingredients
- *      in season this month. The LLM is told to use only these.
+ *      in season this month. The LLM is told to feature these as central
+ *      ingredients while supplementing with other common ingredients.
  *   4. Filtreringskrav (optional) — three independent sub-lists
  *      following ADR-0001. Omitted when the filter is empty.
  *   5. Output format — JSON object with a `meals` array, each entry
@@ -113,8 +114,10 @@ export function buildShortFormPrompt(
     `Lige nu er det ${monthName} (måned ${month}).`,
     "",
     "# Råvarer i sæson denne måned",
-    `Brug KUN råvarer fra denne liste: ${ingredientList}.`,
-    "Listen er hårdkodet — du må ikke vælge råvarer, der ikke er på listen.",
+    `Følgende råvarer er i sæson lige nu: ${ingredientList}.`,
+    "Dine forslag skal indeholde råvarer fra denne liste som centrale " +
+      "ingredienser, men du må gerne supplere med andre almindelige " +
+      "ingredienser (fx basisråvarer, kød, fisk, mejeri, pasta, ris).",
   ];
 
   if (profile) {

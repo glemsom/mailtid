@@ -52,8 +52,9 @@ filters is still open.)
 ### Seasonality
 "In season" in Mailtid is **a hardcoded Danish seasonality calendar
 stored in SQLite**, owned and maintained by Glenn. The LLM is told which
-ingredients are in season for the current month and is constrained to
-use only those. The LLM does not reason about seasonality on its own
+ingredients are in season for the current month and is instructed to
+feature those as central ingredients while supplementing with other
+common ingredients. The LLM does not reason about seasonality on its own
 and no external data source is consulted at query time.
 
 Approximate scope of the dataset: ~80 ingredients × 12 months. The
