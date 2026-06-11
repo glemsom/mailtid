@@ -25,6 +25,7 @@ export const DIETARY_PATTERNS: readonly string[] = [
   "pescatarian",
   "vegetarian",
   "vegan",
+  "lowcarb",
 ];
 
 export type DietaryPattern = (typeof DIETARY_PATTERNS)[number];

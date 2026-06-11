@@ -17,6 +17,7 @@ const DIETARY_LABELS: Record<string, string> = {
   pescatarian: "Pescetar (fisk + grønt)",
   vegetarian: "Vegetarisk",
   vegan: "Vegansk",
+  lowcarb: "Low-carb (lavkulhydrat)",
 };
 
 export interface SettingsPageData {
@@ -39,7 +40,7 @@ export interface SettingsPageData {
  * and the "Opdater modeller" button.
  */
 export function renderSettingsPage(data: SettingsPageData): string {
-  const dietOptions = ["omnivore", "pescatarian", "vegetarian", "vegan"]
+  const dietOptions = DIETARY_PATTERNS
     .map(
       (v) =>
         `<option value="${v}"${

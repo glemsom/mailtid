@@ -8,6 +8,13 @@ import type { UserProfile } from "../db/profile.js";
  */
 export const SHORT_FORM_MEAL_COUNT = 5;
 
+/** Specific instructions for each dietary pattern so the LLM understands the constraints. */
+const DIETARY_HINTS: Record<string, string> = {
+  lowcarb:
+    "Undgå brød, pasta, ris, kartofler, sukker og andre kulhydrat-tunge fødevarer. " +
+    "Fokuser på protein, sunde fedtstoffer og grøntsager som blomkål, broccoli og spinat.",
+};
+
 /**
  * The name of the current month in Danish (1 = "Januar", ..., 12 =
  * "December"). Used in the LLM prompt so the model knows which
@@ -126,10 +133,14 @@ export function buildShortFormPrompt(
 
   if (profile) {
     lines.push("", "# Kostprofil");
+    const dietaryHint = DIETARY_HINTS[profile.dietaryPattern];
     lines.push(
       `- Kosttype: ${profile.dietaryPattern}.`,
       "  Du må KUN foreslå retter, der passer til denne kosttype.",
     );
+    if (dietaryHint) {
+      lines.push(`  ${dietaryHint}`);
+    }
     if (profile.allergies.length > 0) {
       const allergyList = profile.allergies.join(", ");
       lines.push(
