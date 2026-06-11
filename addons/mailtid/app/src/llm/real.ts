@@ -60,4 +60,38 @@ export class RealLLMClient implements LLMClient {
     }
     return content;
   }
+
+  async stream(
+    prompt: string,
+    opts?: { model?: string; onReasoning?: (token: string) => void },
+  ): Promise<string> {
+    // Re-read the key before every request so changes made through
+    // the in-app settings page take effect without a restart.
+    this.openai.apiKey = this.keyProvider();
+    const model = opts?.model ?? this.defaultModel;
+    const stream = await this.openai.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      stream: true,
+    });
+    let content = "";
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      if (delta?.content) {
+        content += delta.content;
+      }
+      // `reasoning_content` is not yet in the OpenAI SDK types but
+      // is emitted by reasoning-capable models (OpenCode Go, Groq,
+      // etc.). Access it via a type assertion.
+      const reasoning = (delta as Record<string, unknown> | undefined)
+        ?.reasoning_content;
+      if (typeof reasoning === "string" && reasoning.length > 0) {
+        opts?.onReasoning?.(reasoning);
+      }
+    }
+    if (content.length === 0) {
+      throw new Error("LLM returned an empty response");
+    }
+    return content;
+  }
 }

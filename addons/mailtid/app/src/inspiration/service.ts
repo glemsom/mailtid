@@ -118,12 +118,20 @@ export class InspirationService {
    * Produce 5 short-form Meal Inspirations for the current month,
    * constrained to the in-season Danish ingredient list and the
    * user's current filter selection.
+   *
+   * @param opts.onStatus Called with build-phase status messages
+   *   (fetching, building stats, AI calling).
+   * @param opts.onReasoning Called with raw reasoning token deltas
+   *   as they arrive from the LLM (for reasoning-capable models).
    */
-  async shortForm(onStatus?: (status: string) => void): Promise<MealInspiration[]> {
+  async shortForm(opts?: {
+    onStatus?: (status: string) => void;
+    onReasoning?: (token: string) => void;
+  }): Promise<MealInspiration[]> {
     const month = this.monthProvider();
 
     // Phase 1: fetch data from SQLite.
-    onStatus?.("Henter ingredienser og profil...");
+    opts?.onStatus?.("Henter ingredienser og profil...");
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const filter = this.filterDeps
@@ -138,12 +146,15 @@ export class InspirationService {
 
     // Phase 2: prompt built — emit statistics.
     const prompt = buildShortFormPrompt(month, inSeason, filter, profile, cookedTitles);
-    onStatus?.(buildStatusMessage(inSeason, filter, profile));
+    opts?.onStatus?.(buildStatusMessage(inSeason, filter, profile));
 
-    // Phase 3: call the LLM.
-    onStatus?.("AI tænker...");
+    // Phase 3: call the LLM via streaming.
+    opts?.onStatus?.("AI tænker...");
     const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
-    const raw = await this.llm.chat(prompt, activeModel ? { model: activeModel } : undefined);
+    const raw = await this.llm.stream(prompt, {
+      model: activeModel ?? undefined,
+      onReasoning: opts?.onReasoning,
+    });
     return parseShortFormResponse(raw);
   }
 

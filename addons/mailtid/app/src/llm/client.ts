@@ -26,4 +26,18 @@ export interface LLMClient {
    *                   client's default model is used.
    */
   chat(prompt: string, opts?: { model?: string }): Promise<string>;
+
+  /**
+   * Stream a chat completion prompt and return the full accumulated
+   * response text. Fires {@link opts.onReasoning} with raw
+   * `reasoning_content` token deltas as they arrive from the LLM.
+   *
+   * @param prompt The full prompt to send.
+   * @param opts.model Optional model override.
+   * @param opts.onReasoning Callback for `reasoning_content` deltas.
+   */
+  stream(
+    prompt: string,
+    opts?: { model?: string; onReasoning?: (token: string) => void },
+  ): Promise<string>;
 }

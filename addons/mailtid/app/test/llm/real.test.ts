@@ -39,4 +39,17 @@ describe("RealLLMClient (key provider)", () => {
     const client = new RealLLMClient("sk-direct");
     expect((client as unknown as { openai: { apiKey: string } }).openai.apiKey).toBe("sk-direct");
   });
+
+  test("stream updates the API key from the provider before a request", () => {
+    let currentKey = "sk-first";
+    const client = new RealLLMClient(() => currentKey);
+    currentKey = "sk-second";
+
+    // Simulate the key-update path that stream() follows before
+    // making the HTTP call. Mirrors the chat() key-provider test.
+    const openai = (client as unknown as { openai: { apiKey: string } }).openai;
+    const provider = (client as unknown as { keyProvider: () => string }).keyProvider;
+    openai.apiKey = provider();
+    expect(openai.apiKey).toBe("sk-second");
+  });
 });

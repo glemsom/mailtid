@@ -63,6 +63,27 @@ describe("buildShortFormPrompt", () => {
     expect(prompt).not.toContain("Task");
     expect(prompt).not.toContain("Output format");
   });
+
+  test("includes # Tænkning reasoning instruction after filter section", () => {
+    const prompt = buildShortFormPrompt(6, JUNE_INGREDIENTS);
+
+    expect(prompt).toContain("# Tænkning");
+    expect(prompt).toContain("tænk grundigt igennem");
+    expect(prompt).toContain("JSON-svar");
+  });
+
+  test("Tænkning section appears after Filtreringskrav when filter is active", () => {
+    const prompt = buildShortFormPrompt(6, JUNE_INGREDIENTS, {
+      inSeasonIncludes: [{ slug: "asparges", nameDa: "Asparges" }],
+      customMandatory: [],
+      excludes: [],
+    });
+
+    const filterIdx = prompt.indexOf("# Filtreringskrav");
+    const thinkIdx = prompt.indexOf("# Tænkning");
+    expect(filterIdx).toBeGreaterThan(-1);
+    expect(thinkIdx).toBeGreaterThan(filterIdx);
+  });
 });
 
 describe("danishMonthName", () => {

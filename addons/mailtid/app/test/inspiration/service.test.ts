@@ -97,6 +97,59 @@ describe("InspirationService.shortForm", () => {
     const prompt = llm.prompts[0] ?? "";
     expect(prompt).not.toContain("Tidligere lavet");
   });
+
+  test("calls stream() not chat()", async () => {
+    const { service, llm } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    // Track which method was called by spying.
+    let streamCalled = false;
+    let chatCalled = false;
+    const origStream = llm.stream.bind(llm);
+    const origChat = llm.chat.bind(llm);
+    llm.stream = async (...args: Parameters<typeof origStream>) => {
+      streamCalled = true;
+      return origStream(...args);
+    };
+    llm.chat = async (...args: Parameters<typeof origChat>) => {
+      chatCalled = true;
+      return origChat(...args);
+    };
+
+    await service.shortForm();
+
+    expect(streamCalled).toBe(true);
+    expect(chatCalled).toBe(false);
+  });
+
+  test("wires onReasoning callback through to LLM stream", async () => {
+    const { service, llm } = makeService({ cannedResponse: CANNED, month: 6 });
+    llm.cannedReasoning = "Jeg tænker mig om...";
+    const reasoning: string[] = [];
+
+    await service.shortForm({ onReasoning: (t) => reasoning.push(t) });
+
+    expect(reasoning).toEqual(["Jeg tænker mig om..."]);
+  });
+
+  test("onReasoning is optional — no crash when omitted", async () => {
+    const { service, llm } = makeService({ cannedResponse: CANNED, month: 6 });
+    llm.cannedReasoning = "some reasoning";
+
+    const meals = await service.shortForm();
+    expect(meals).toHaveLength(5);
+  });
+
+  test("onStatus still works when passed via opts object", async () => {
+    const statuses: string[] = [];
+    const { service } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    await service.shortForm({ onStatus: (s) => statuses.push(s) });
+
+    expect(statuses).toHaveLength(3);
+    expect(statuses[0]).toBe("Henter ingredienser og profil...");
+    expect(statuses[2]).toBe("AI tænker...");
+  });
+
 });
 
 describe("shortForm status messages", () => {
@@ -104,7 +157,7 @@ describe("shortForm status messages", () => {
     const statuses: string[] = [];
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
 
-    await service.shortForm((status) => statuses.push(status));
+    await service.shortForm({ onStatus: (status) => statuses.push(status) });
 
     expect(statuses).toHaveLength(3);
     expect(statuses[0]).toBe("Henter ingredienser og profil...");
@@ -116,7 +169,7 @@ describe("shortForm status messages", () => {
     const statuses: string[] = [];
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
 
-    await service.shortForm((status) => statuses.push(status));
+    await service.shortForm({ onStatus: (status) => statuses.push(status) });
 
     // June has a known set of ingredients — the exact count doesn't
     // matter, but it must appear in the message.
@@ -160,7 +213,7 @@ describe("shortForm status messages", () => {
     );
 
     const statuses: string[] = [];
-    await service.shortForm((status) => statuses.push(status));
+    await service.shortForm({ onStatus: (status) => statuses.push(status) });
 
     const buildMsg = statuses[1] ?? "";
     // 2 includes + 1 custom + 1 exclude = 4 filter constraints
@@ -172,7 +225,7 @@ describe("shortForm status messages", () => {
     const statuses: string[] = [];
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
 
-    await service.shortForm((status) => statuses.push(status));
+    await service.shortForm({ onStatus: (status) => statuses.push(status) });
 
     const buildMsg = statuses[1] ?? "";
     expect(buildMsg).not.toContain("kostprofil:");
@@ -204,7 +257,7 @@ describe("shortForm status messages", () => {
     );
 
     const statuses: string[] = [];
-    await service.shortForm((status) => statuses.push(status));
+    await service.shortForm({ onStatus: (status) => statuses.push(status) });
 
     const buildMsg = statuses[1] ?? "";
     expect(buildMsg).toContain("kostprofil: vegan");

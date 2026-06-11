@@ -200,8 +200,10 @@ export function createApp(deps: AppDeps): Hono {
     
     return streamSSE(c, async (stream) => {
       try {
-        const meals = await deps.inspiration.shortForm((status) => {
-          stream.writeSSE({ data: status, event: "status" }).catch(() => {});
+        const meals = await deps.inspiration.shortForm({
+          onStatus: (status) => {
+            stream.writeSSE({ data: status, event: "status" }).catch(() => {});
+          },
         });
         await stream.writeSSE({ data: JSON.stringify({ meals }), event: "done" });
       } catch (err) {

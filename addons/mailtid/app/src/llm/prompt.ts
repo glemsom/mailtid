@@ -179,6 +179,10 @@ export function buildShortFormPrompt(
 
   lines.push(
     "",
+    "# Tænkning",
+    "Hvis du har reasoning-evner, tænk grundigt igennem hvilke retter du " +
+      "vil foreslå og hvorfor, før du skriver dit JSON-svar.",
+    "",
     "# Outputformat",
     "Svar som JSON i præcis denne form, uden markdown, uden kodeblokke, " +
       "uden forklaringstekst:",
