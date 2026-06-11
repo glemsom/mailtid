@@ -321,6 +321,52 @@ function reloadPage() {
 }
 
 /**
+ * Fetch inspiration using Server-Sent Events (SSE) to provide
+ * real-time feedback to the user while the LLM is thinking.
+ */
+async function streamInspiration() {
+  const res = await fetch("/api/inspiration", { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Kunne ikke få forslag");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "message";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = line.slice(6);
+        if (currentEvent === "done") {
+          return JSON.parse(data);
+        } else if (currentEvent === "error") {
+          const errData = JSON.parse(data);
+          throw new Error(errData.error || "Fejl");
+        } else if (currentEvent === "status") {
+          setStatus(data);
+        }
+      } else if (line === "") {
+        currentEvent = "message";
+      }
+    }
+  }
+  
+  throw new Error("Uventet afslutning på stream");
+}
+
+/**
  * Refresh: show skeleton, fetch inspiration, render meals or
  * show a retry button on error.
  */
@@ -329,22 +375,15 @@ function wireRefresh() {
   if (!btn) return;
   btn.addEventListener("click", async () => {
     renderSkeleton();
-    setStatus("");
+    setStatus("Forbereder...");
     btn.disabled = true;
     try {
-      const res = await fetch("/api/inspiration", { method: "POST" });
-      if (res.ok) {
-        const body = await res.json();
-        renderMeals(body.meals || []);
-        const count = body.meals ? body.meals.length : 0;
-        setStatus(count > 0 ? "" : "Ingen forslag.");
-      } else {
-        const body = await res.json();
-        const msg = body.error || "Kunne ikke få forslag — prøv igen";
-        showError(msg);
-      }
+      const body = await streamInspiration();
+      renderMeals(body.meals || []);
+      const count = body.meals ? body.meals.length : 0;
+      setStatus(count > 0 ? "" : "Ingen forslag.");
     } catch (err) {
-      showError("Kunne ikke få forslag — prøv igen");
+      showError(err.message || "Kunne ikke få forslag — prøv igen");
     } finally {
       btn.disabled = false;
     }
