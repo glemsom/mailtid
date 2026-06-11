@@ -178,10 +178,47 @@ describe("GET /static/:filename", () => {
     expect(html).not.toContain("OpenCode API-nøgle");
   });
 
-  test("includes a #thinking element with an AI reasoning label", async () => {
+  test("renders phase-aware thinking panel hidden by default", async () => {
     const html = await homeHtml();
 
-    expect(html).toMatch(/id="thinking"/);
-    expect(html).toContain("AI&apos;ens tanker:");
+    // The panel exists but is hidden on page load.
+    expect(html).toMatch(/id="thinking-panel"/);
+    expect(html).toContain("hidden");
+  });
+
+  test("thinking panel contains a phase label, dismiss button, and raw-token toggle", async () => {
+    const html = await homeHtml();
+
+    // Phase label area.
+    expect(html).toMatch(/id="thinking-phase"/);
+    // Dismiss button.
+    expect(html).toMatch(/id="thinking-dismiss"/);
+    expect(html).toContain("Skjul");
+    // Details/summary toggle for raw reasoning tokens.
+    expect(html).toMatch(/id="thinking-details"/);
+    expect(html).toMatch(/id="thinking-tokens"/);
+    expect(html).toContain("Hvad overvejer AI&apos;en?");
+  });
+
+  test("dismiss button is keyboard-focusable", async () => {
+    const html = await homeHtml();
+
+    expect(html).toMatch(/<button[^>]*id="thinking-dismiss"/);
+  });
+
+  test("raw-token summary toggle is keyboard-focusable (native details/summary)", async () => {
+    const html = await homeHtml();
+
+    expect(html).toMatch(/<details[^>]*id="thinking-details"/);
+    expect(html).toMatch(/<summary[^>]*>/);
+  });
+
+  test("old flat thinking box and label are no longer present", async () => {
+    const html = await homeHtml();
+
+    // The old AI'ens tanker label should NOT be in the new markup.
+    expect(html).not.toContain("AI&apos;ens tanker:");
+    // The old id="thinking" on a plain div should be gone.
+    expect(html).not.toMatch(/id="thinking"[^l-]/);
   });
 });

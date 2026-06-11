@@ -120,8 +120,16 @@ export function renderHomePage(data: HomePageData): string {
     <button id="refresh" type="button" class="primary">Vis 5 nye</button>
     <div id="meals" class="meals"></div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
-    <p class="thinking-label" id="thinking-label">AI&apos;ens tanker:</p>
-    <div id="thinking" class="thinking-box" style="display:none"></div>
+    <div id="thinking-panel" class="thinking-panel" hidden>
+      <div class="thinking-header">
+        <span id="thinking-phase" class="thinking-phase" role="status" aria-live="polite"></span>
+        <button id="thinking-dismiss" class="thinking-dismiss" type="button" aria-label="Skjul tænkeboks">Skjul ▲</button>
+      </div>
+      <details id="thinking-details" class="thinking-details">
+        <summary class="thinking-summary">Hvad overvejer AI&apos;en? ▸</summary>
+        <div id="thinking-tokens" class="thinking-tokens"></div>
+      </details>
+    </div>
   </section>
 
   <script src="/static/app.js"></script>

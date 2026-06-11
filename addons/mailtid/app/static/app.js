@@ -60,34 +60,77 @@ function escapeHtml(raw) {
 }
 
 /**
- * Clear and hide the thinking box. Called on error and when a
- * new inspiration request starts.
+ * Show the thinking panel and display a phase label.
+ * Called when a status SSE event arrives.
  */
-function clearThinking() {
-  const box = document.getElementById("thinking");
-  const label = document.getElementById("thinking-label");
-  if (box) {
-    box.textContent = "";
-    box.style.display = "none";
+function showPhase(phase) {
+  const panel = document.getElementById("thinking-panel");
+  const phaseEl = document.getElementById("thinking-phase");
+  if (panel) {
+    panel.hidden = false;
   }
-  if (label) {
-    label.style.display = "none";
+  if (phaseEl) {
+    phaseEl.textContent = phase;
+    // Highlight the current phase.
+    phaseEl.classList.add("active");
   }
 }
 
 /**
- * Show the thinking box (and its label) and append a token.
- * On first call the box is revealed; subsequent calls just append.
+ * Append a reasoning token to the collapsed raw-token area.
  */
 function showThinking(token) {
-  const box = document.getElementById("thinking");
-  const label = document.getElementById("thinking-label");
-  if (box) {
-    box.style.display = "block";
-    box.textContent += token;
+  const tokens = document.getElementById("thinking-tokens");
+  if (tokens) {
+    tokens.textContent += token;
   }
-  if (label) {
-    label.style.display = "block";
+}
+
+/**
+ * Mark the thinking phase as finished.
+ */
+function finishPhase() {
+  const phaseEl = document.getElementById("thinking-phase");
+  if (phaseEl) {
+    phaseEl.textContent = "Færdig \u2713";
+    phaseEl.classList.remove("active");
+    phaseEl.classList.add("finished");
+  }
+  // Auto-collapse the raw-token details.
+  const details = document.getElementById("thinking-details");
+  if (details) {
+    details.open = false;
+  }
+  // Auto-hide the panel after a short delay.
+  setTimeout(() => {
+    const panel = document.getElementById("thinking-panel");
+    if (panel && !panel.hidden) {
+      panel.hidden = true;
+    }
+  }, 4000);
+}
+
+/**
+ * Hide and reset the thinking panel. Called on error and when
+ * a new inspiration request starts.
+ */
+function clearThinking() {
+  const panel = document.getElementById("thinking-panel");
+  const phaseEl = document.getElementById("thinking-phase");
+  const tokens = document.getElementById("thinking-tokens");
+  const details = document.getElementById("thinking-details");
+  if (panel) {
+    panel.hidden = true;
+  }
+  if (phaseEl) {
+    phaseEl.textContent = "";
+    phaseEl.classList.remove("active", "finished");
+  }
+  if (tokens) {
+    tokens.textContent = "";
+  }
+  if (details) {
+    details.open = false;
   }
 }
 
@@ -389,12 +432,15 @@ async function streamInspiration() {
       } else if (line.startsWith("data: ")) {
         const data = line.slice(6);
         if (currentEvent === "done") {
-          return JSON.parse(data);
+          const parsed = JSON.parse(data);
+          finishPhase();
+          return parsed;
         } else if (currentEvent === "error") {
           clearThinking();
           const errData = JSON.parse(data);
           throw new Error(errData.error || "Fejl");
         } else if (currentEvent === "status") {
+          showPhase(data);
           setStatus(data);
         } else if (currentEvent === "thinking") {
           showThinking(data);
@@ -459,6 +505,22 @@ function init() {
   wireChips();
   wireCustomForm();
   wireRefresh();
+  wireThinkingDismiss();
+}
+
+/**
+ * Wire the dismiss button on the thinking panel.
+ */
+function wireThinkingDismiss() {
+  const dismissBtn = document.getElementById("thinking-dismiss");
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      const panel = document.getElementById("thinking-panel");
+      if (panel) {
+        panel.hidden = true;
+      }
+    });
+  }
 }
 
 if (document.readyState === "loading") {
