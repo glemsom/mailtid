@@ -10,11 +10,12 @@ import { InspirationService } from "../../src/inspiration/service.js";
 
 const CANNED = JSON.stringify({
   meals: [
-    { title: "T1", description: "D1" },
-    { title: "T2", description: "D2" },
-    { title: "T3", description: "D3" },
-    { title: "T4", description: "D4" },
-    { title: "T5", description: "D5" },
+    { title: "T1", description: "D1", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
+    { title: "T2", description: "D2", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
+    { title: "T3", description: "D3", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
+    { title: "T4", description: "D4", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
+    { title: "T5", description: "D5", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
+    { title: "T6", description: "D6", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
   ],
 });
 

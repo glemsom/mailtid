@@ -22,17 +22,30 @@ const DIETARY_LABELS: Record<string, string> = {
 };
 
 /**
- * A single short-form Meal Inspiration. Returned by the home-screen
- * 5-meal call and shown as a card. A full recipe (ingredients,
- * steps, time) is fetched separately on card tap.
+ * A single Meal Ingredient line.
+ */
+export interface MealIngredient {
+  name: string;
+  amount: string;
+  unit: string;
+}
+
+/**
+ * A single Meal Inspiration returned by the home-screen call.
+ * Includes the short-form card data (title, description) and the
+ * full recipe (ingredients, steps, time) in one shot — no second
+ * LLM call needed when the user taps "Se opskrift".
  */
 export interface MealInspiration {
   title: string;
   description: string;
+  ingredients: MealIngredient[];
+  steps: string[];
+  timeMinutes: number;
 }
 
 /**
- * The shape the LLM is asked to produce for the short-form 5-meal
+ * The shape the LLM is asked to produce for the short-form 6-meal
  * call. The service parses the LLM's raw text into a
  * `MealInspiration[]`.
  */
@@ -69,14 +82,85 @@ function validateMeal(value: unknown, index: number): MealInspiration {
   if (!value || typeof value !== "object") {
     throw new Error(`meals[${index}] was not an object`);
   }
-  const obj = value as { title?: unknown; description?: unknown };
+  const obj = value as {
+    title?: unknown;
+    description?: unknown;
+    ingredients?: unknown;
+    steps?: unknown;
+    time_minutes?: unknown;
+  };
   if (typeof obj.title !== "string" || obj.title.length === 0) {
     throw new Error(`meals[${index}].title must be a non-empty string`);
   }
   if (typeof obj.description !== "string" || obj.description.length === 0) {
     throw new Error(`meals[${index}].description must be a non-empty string`);
   }
-  return { title: obj.title, description: obj.description };
+  if (!Array.isArray(obj.ingredients)) {
+    throw new Error(`meals[${index}].ingredients must be an array`);
+  }
+  const ingredients = obj.ingredients.map((ing, i) =>
+    validateIngredient(ing, i, index),
+  );
+  if (!Array.isArray(obj.steps) || obj.steps.length === 0) {
+    throw new Error(`meals[${index}].steps must be a non-empty array`);
+  }
+  const steps = obj.steps.map((s, i) => validateStep(s, i, index));
+  if (
+    typeof obj.time_minutes !== "number" ||
+    !Number.isInteger(obj.time_minutes) ||
+    obj.time_minutes <= 0
+  ) {
+    throw new Error(`meals[${index}].time_minutes must be a positive integer`);
+  }
+  return {
+    title: obj.title,
+    description: obj.description,
+    ingredients,
+    steps,
+    timeMinutes: obj.time_minutes,
+  };
+}
+
+function validateIngredient(
+  value: unknown,
+  ingIndex: number,
+  mealIndex: number,
+): MealIngredient {
+  if (!value || typeof value !== "object") {
+    throw new Error(
+      `meals[${mealIndex}].ingredients[${ingIndex}] was not an object`,
+    );
+  }
+  const obj = value as { name?: unknown; amount?: unknown; unit?: unknown };
+  if (typeof obj.name !== "string" || obj.name.length === 0) {
+    throw new Error(
+      `meals[${mealIndex}].ingredients[${ingIndex}].name must be a non-empty string`,
+    );
+  }
+  if (typeof obj.amount !== "string" || obj.amount.length === 0) {
+    throw new Error(
+      `meals[${mealIndex}].ingredients[${ingIndex}].amount must be a non-empty string`,
+    );
+  }
+  if (typeof obj.unit !== "string" || obj.unit.length === 0) {
+    throw new Error(
+      `meals[${mealIndex}].ingredients[${ingIndex}].unit must be a non-empty string`,
+    );
+  }
+  return { name: obj.name, amount: obj.amount, unit: obj.unit };
+}
+
+function validateStep(
+  value: unknown,
+  stepIndex: number,
+  mealIndex: number,
+): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(
+      `meals[${mealIndex}].steps[${stepIndex}] must be a non-empty string`,
+    );
+  }
+  return value;
 }
 
 /**
@@ -92,7 +176,7 @@ export interface InspirationServiceFilterDeps {
 }
 
 /**
- * Business logic for the home-screen 5-meal call. Owns the
+ * Business logic for the home-screen 6-meal call. Owns the
  * "look up in-season, build prompt, call LLM, parse response"
  * flow; the HTTP layer is a thin wrapper.
  *
@@ -115,7 +199,7 @@ export class InspirationService {
   ) {}
 
   /**
-   * Produce 5 short-form Meal Inspirations for the current month,
+   * Produce 6 short-form Meal Inspirations for the current month,
    * constrained to the in-season Danish ingredient list and the
    * user's current filter selection.
    *

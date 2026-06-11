@@ -27,7 +27,7 @@ export interface HomePageData {
  * Render the Mailtid home page as a full HTML document. The page
  * is server-rendered so the initial paint shows the saved filter
  * state without a JS round-trip; a small client-side script then
- * handles chip cycling, custom-mandatory adds, and the "Vis 5 nye"
+ * handles chip cycling, custom-mandatory adds, and the "Vis 6 nye"
  * button.
  */
 export function renderHomePage(data: HomePageData): string {
@@ -117,7 +117,7 @@ export function renderHomePage(data: HomePageData): string {
   </section>
 
   <section id="results" aria-label="Forslag">
-    <button id="refresh" type="button" class="primary">Vis 5 nye</button>
+    <button id="refresh" type="button" class="primary">Vis 6 nye</button>
     <div id="meals" class="meals"></div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
     <p class="thinking-label" id="thinking-label">AI&apos;ens tanker:</p>

@@ -37,13 +37,18 @@ describe("buildShortFormPrompt", () => {
     expect(prompt.toLowerCase()).toMatch(/supplere med andre almindelige/);
   });
 
-  test("asks for exactly 5 short-form Meal Inspirations", () => {
+  test("asks for exactly 6 short-form Meal Inspirations with full recipe data", () => {
     const prompt = buildShortFormPrompt(6, JUNE_INGREDIENTS);
 
     expect(prompt).toContain(String(SHORT_FORM_MEAL_COUNT));
     expect(prompt).toContain("meals");
     expect(prompt).toContain("title");
     expect(prompt).toContain("description");
+    expect(prompt).toContain("ingredients");
+    expect(prompt).toContain("steps");
+    expect(prompt).toContain("time_minutes");
+    expect(prompt).toContain("amount");
+    expect(prompt).toContain("unit");
   });
 
   test("requires JSON output (no markdown, no code blocks)", () => {

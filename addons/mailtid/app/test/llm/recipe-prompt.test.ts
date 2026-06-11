@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildRecipePrompt } from "../../src/llm/recipe-prompt.js";
 import type { SeasonalityIngredient } from "../../src/db/seasonality.js";
-import type { MealInspiration } from "../../src/inspiration/service.js";
+import type { RecipeMealRef } from "../../src/inspiration/recipe-service.js";
 
 const JUNE_INGREDIENTS: SeasonalityIngredient[] = [
   { slug: "asparges", nameDa: "Asparges", month: 6 },
@@ -9,7 +9,7 @@ const JUNE_INGREDIENTS: SeasonalityIngredient[] = [
   { slug: "kartofler", nameDa: "Kartofler", month: 6 },
 ];
 
-const MEAL: MealInspiration = {
+const MEAL: RecipeMealRef = {
   title: "Aspargessuppe",
   description: "Cremet suppe med grønne asparges.",
 };

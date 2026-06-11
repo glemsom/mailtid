@@ -36,25 +36,46 @@ function makeService(opts: {
   return { service, llm, db };
 }
 
+function makeCannedMeal(title: string, description: string) {
+  return {
+    title,
+    description,
+    ingredients: [
+      { name: "Hovedingrediens", amount: "500", unit: "g" },
+      { name: "Salt", amount: "1", unit: "tsk" },
+    ],
+    steps: [
+      "Forbered ingredienserne.",
+      "Tilbered retten.",
+      "Server og nyd.",
+    ],
+    time_minutes: 30,
+  };
+}
+
 const CANNED = JSON.stringify({
   meals: [
-    { title: "Jordbærtærte", description: "Sprød tærte med friske jordbær." },
-    { title: "Aspargessuppe", description: "Cremet suppe med grønne asparges." },
-    { title: "Kartoffelsalat", description: "Klassisk kartoffelsalat med dild." },
-    { title: "Tomatsalat", description: "Frisk salat med modne tomater." },
-    { title: "Rabarberkompot", description: "Sød kompot af årets rabarber." },
+    makeCannedMeal("Jordbærtærte", "Sprød tærte med friske jordbær."),
+    makeCannedMeal("Aspargessuppe", "Cremet suppe med grønne asparges."),
+    makeCannedMeal("Kartoffelsalat", "Klassisk kartoffelsalat med dild."),
+    makeCannedMeal("Tomatsalat", "Frisk salat med modne tomater."),
+    makeCannedMeal("Rabarberkompot", "Sød kompot af årets rabarber."),
+    makeCannedMeal("Blomkålssuppe", "Fløjlsblød suppe med blomkål."),
   ],
 });
 
 describe("InspirationService.shortForm", () => {
-  test("returns 5 short-form Meal Inspirations from the LLM response", async () => {
+  test("returns 6 short-form Meal Inspirations from the LLM response", async () => {
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
 
     const meals = await service.shortForm();
 
-    expect(meals).toHaveLength(5);
+    expect(meals).toHaveLength(6);
     expect(meals[0]?.title).toBe("Jordbærtærte");
     expect(meals[0]?.description).toMatch(/jordbær/);
+    expect(meals[0]?.ingredients).toHaveLength(2);
+    expect(meals[0]?.steps).toHaveLength(3);
+    expect(meals[0]?.timeMinutes).toBe(30);
   });
 
   test("sends a prompt to the LLM that names the current month and the in-season ingredients", async () => {
@@ -136,7 +157,7 @@ describe("InspirationService.shortForm", () => {
     llm.cannedReasoning = "some reasoning";
 
     const meals = await service.shortForm();
-    expect(meals).toHaveLength(5);
+    expect(meals).toHaveLength(6);
   });
 
   test("onStatus still works when passed via opts object", async () => {
@@ -266,32 +287,34 @@ describe("shortForm status messages", () => {
   test("status callback is optional — no crash when omitted", async () => {
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
     const meals = await service.shortForm();
-    expect(meals).toHaveLength(5);
+    expect(meals).toHaveLength(6);
   });
 });
 
 describe("parseShortFormResponse", () => {
   test("parses a well-formed JSON object", () => {
     const parsed = parseShortFormResponse(CANNED);
-    expect(parsed).toHaveLength(5);
+    expect(parsed).toHaveLength(6);
   });
 
   test("strips ```json fences if the model added them", () => {
     const wrapped = "```json\n" + CANNED + "\n```";
-    expect(parseShortFormResponse(wrapped)).toHaveLength(5);
+    expect(parseShortFormResponse(wrapped)).toHaveLength(6);
   });
 
   test("ignores prose before/after the JSON object", () => {
     const wrapped = "Her er forslagene:\n" + CANNED + "\nGod fornøjelse!";
-    expect(parseShortFormResponse(wrapped)).toHaveLength(5);
+    expect(parseShortFormResponse(wrapped)).toHaveLength(6);
   });
 
   test("throws on a missing meals array", () => {
     expect(() => parseShortFormResponse(JSON.stringify({ foo: 1 }))).toThrow();
   });
 
-  test("throws on a meal with a missing description", () => {
-    const bad = JSON.stringify({ meals: [{ title: "X" }] });
+  test("throws on a meal with missing ingredients", () => {
+    const bad = JSON.stringify({
+      meals: [{ title: "X", description: "Y" }],
+    });
     expect(() => parseShortFormResponse(bad)).toThrow();
   });
 

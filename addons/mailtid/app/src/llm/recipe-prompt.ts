@@ -1,5 +1,5 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
-import type { MealInspiration } from "../inspiration/service.js";
+import type { RecipeMealRef } from "../inspiration/recipe-service.js";
 
 /**
  * Build the prompt for the full-recipe LLM call. Mirrors the
@@ -19,7 +19,7 @@ import type { MealInspiration } from "../inspiration/service.js";
  *      `steps` array of strings, and `time_minutes` as an integer.
  */
 export function buildRecipePrompt(
-  meal: MealInspiration,
+  meal: RecipeMealRef,
   inSeason: readonly SeasonalityIngredient[],
 ): string {
   const ingredientList = inSeason.map((i) => i.nameDa).join(", ");

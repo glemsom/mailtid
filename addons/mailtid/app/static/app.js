@@ -9,7 +9,7 @@
  *  2. Submit the custom-mandatory form to /api/custom-ingredients
  *     and re-render the custom-chip list when the user clicks
  *     "Fjern" (×).
- *  3. Render the 5 short-form Meal Inspirations with a loading
+ *  3. Render the 6 short-form Meal Inspirations with a loading
  *     skeleton while fetching, and a retry button on error.
  *
  * The page itself is server-rendered, so a no-JS user can still
@@ -114,14 +114,36 @@ function renderSkeleton() {
     .join("");
 }
 
+/**
+ * In-memory cache of full recipe data indexed by meal title.
+ * Populated when meals are rendered; read when "Se opskrift" is
+ * clicked. No second LLM call needed — one-shot approach.
+ */
+let recipeCache = {};
+
 function renderMeals(meals) {
   const container = document.getElementById("meals");
   if (!container) return;
   if (meals.length === 0) {
     container.innerHTML =
-      '<p class="empty">Ingen forslag endnu — tryk "Vis 5 nye".</p>';
+      '<p class="empty">Ingen forslag endnu — tryk "Vis 6 nye".</p>';
     return;
   }
+
+  // Populate the recipe cache from the one-shot response.
+  recipeCache = {};
+  for (const meal of meals) {
+    if (meal.title) {
+      recipeCache[meal.title] = {
+        title: meal.title,
+        description: meal.description,
+        ingredients: meal.ingredients || [],
+        steps: meal.steps || [],
+        timeMinutes: meal.timeMinutes || 0,
+      };
+    }
+  }
+
   container.innerHTML = meals
     .map(
       (meal) =>
@@ -137,8 +159,7 @@ function renderMeals(meals) {
         `<button class="cooked-btn" data-cooked-title="${escapeHtml(meal.title)}"` +
         ` data-cooked-desc="${escapeHtml(meal.description)}">` +
         `Har lavet</button>` +
-        `<button class="recipe-btn" data-recipe-title="${escapeHtml(meal.title)}"` +
-        ` data-recipe-desc="${escapeHtml(meal.description)}">` +
+        `<button class="recipe-btn" data-recipe-title="${escapeHtml(meal.title)}">` +
         `Se opskrift</button>` +
         `</div>` +
         `</article>`,
@@ -192,22 +213,15 @@ function renderMeals(meals) {
     });
   }
 
-  // Wire recipe buttons.
+  // Wire recipe buttons — show cached recipe, no API call.
   for (const btn of container.querySelectorAll(".recipe-btn")) {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", () => {
       const title = btn.getAttribute("data-recipe-title") || "";
-      const description = btn.getAttribute("data-recipe-desc") || "";
-      btn.disabled = true;
-      btn.textContent = "Henter opskrift...";
-      clearThinking();
-      try {
-        const recipe = await streamRecipe(title, description);
+      const recipe = recipeCache[title];
+      if (recipe) {
         showRecipe(recipe);
-      } catch (err) {
-        setStatus(err.message || "Kunne ikke hente opskrift.");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Se opskrift";
+      } else {
+        setStatus("Opskrift ikke tilgængelig — prøv at hente nye forslag.");
       }
     });
   }
@@ -391,59 +405,6 @@ async function streamInspiration() {
     }
   }
   
-  throw new Error("Uventet afslutning på stream");
-}
-
-/**
- * Fetch a full recipe using Server-Sent Events (SSE), streaming
- * reasoning tokens from the LLM into the #thinking box.
- */
-async function streamRecipe(title, description) {
-  const res = await fetch("/api/inspiration/recipe", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title, description }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Kunne ikke hente opskrift");
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let currentEvent = "message";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        currentEvent = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        const data = line.slice(6);
-        if (currentEvent === "done") {
-          return JSON.parse(data);
-        } else if (currentEvent === "error") {
-          clearThinking();
-          const errData = JSON.parse(data);
-          throw new Error(errData.error || "Fejl");
-        } else if (currentEvent === "status") {
-          setStatus(data);
-        } else if (currentEvent === "thinking") {
-          showThinking(data);
-        }
-      } else if (line === "") {
-        currentEvent = "message";
-      }
-    }
-  }
-
   throw new Error("Uventet afslutning på stream");
 }
 

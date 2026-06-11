@@ -3,7 +3,15 @@ import type { SettingsRepository } from "../db/settings.js";
 import type { LLMClient } from "../llm/client.js";
 import { buildRecipePrompt } from "../llm/recipe-prompt.js";
 import { extractJsonObject } from "../llm/response.js";
-import type { MealInspiration } from "./service.js";
+
+/**
+ * Minimal shape the recipe service needs from a meal — just the
+ * title and description so the LLM knows which meal to expand.
+ */
+export interface RecipeMealRef {
+  title: string;
+  description: string;
+}
 
 /**
  * A single ingredient line in a {@link FullRecipe}. `amount` and
@@ -144,7 +152,7 @@ export class RecipeService {
    *   as they arrive from the LLM (for reasoning-capable models).
    */
   async fullRecipe(
-    meal: MealInspiration,
+    meal: RecipeMealRef,
     opts?: {
       onStatus?: (status: string) => void;
       onReasoning?: (token: string) => void;

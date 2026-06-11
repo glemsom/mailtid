@@ -9,8 +9,8 @@ import {
   RecipeService,
   parseRecipeResponse,
   type FullRecipe,
+  type RecipeMealRef,
 } from "../../src/inspiration/recipe-service.js";
-import type { MealInspiration } from "../../src/inspiration/service.js";
 
 function makeService(opts: {
   cannedResponse: string;
@@ -30,7 +30,7 @@ function makeService(opts: {
   return { service, llm, settings };
 }
 
-const MEAL: MealInspiration = {
+const MEAL: RecipeMealRef = {
   title: "Aspargessuppe",
   description: "Cremet suppe med grønne asparges.",
 };
