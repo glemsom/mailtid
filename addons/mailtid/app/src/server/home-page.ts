@@ -120,6 +120,8 @@ export function renderHomePage(data: HomePageData): string {
     <button id="refresh" type="button" class="primary">Vis 5 nye</button>
     <div id="meals" class="meals"></div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
+    <p class="thinking-label" id="thinking-label">AI&apos;ens tanker:</p>
+    <div id="thinking" class="thinking-box" style="display:none"></div>
   </section>
 
   <script src="/static/app.js"></script>

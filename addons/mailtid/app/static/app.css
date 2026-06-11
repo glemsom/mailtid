@@ -250,6 +250,26 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .status { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 .empty { color: var(--muted); }
 
+/* ---- Thinking box (AI reasoning stream) ---- */
+.thinking-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+}
+.thinking-box {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
 /* ---- Error block / retry ---- */
 .error-block {
   text-align: center;

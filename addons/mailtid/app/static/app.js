@@ -60,9 +60,42 @@ function escapeHtml(raw) {
 }
 
 /**
+ * Clear and hide the thinking box. Called on error and when a
+ * new inspiration request starts.
+ */
+function clearThinking() {
+  const box = document.getElementById("thinking");
+  const label = document.getElementById("thinking-label");
+  if (box) {
+    box.textContent = "";
+    box.style.display = "none";
+  }
+  if (label) {
+    label.style.display = "none";
+  }
+}
+
+/**
+ * Show the thinking box (and its label) and append a token.
+ * On first call the box is revealed; subsequent calls just append.
+ */
+function showThinking(token) {
+  const box = document.getElementById("thinking");
+  const label = document.getElementById("thinking-label");
+  if (box) {
+    box.style.display = "block";
+    box.textContent += token;
+  }
+  if (label) {
+    label.style.display = "block";
+  }
+}
+
+/**
  * Render 5 skeleton cards while the LLM call is in flight.
  */
 function renderSkeleton() {
+  clearThinking();
   const container = document.getElementById("meals");
   if (!container) return;
   container.innerHTML = [1, 2, 3, 4, 5]
@@ -352,10 +385,13 @@ async function streamInspiration() {
         if (currentEvent === "done") {
           return JSON.parse(data);
         } else if (currentEvent === "error") {
+          clearThinking();
           const errData = JSON.parse(data);
           throw new Error(errData.error || "Fejl");
         } else if (currentEvent === "status") {
           setStatus(data);
+        } else if (currentEvent === "thinking") {
+          showThinking(data);
         }
       } else if (line === "") {
         currentEvent = "message";

@@ -144,4 +144,51 @@ describe("POST /api/inspiration", () => {
     const prompt = llm.prompts[0] ?? "";
     expect(prompt).not.toContain("Kostprofil");
   });
+
+  test("emits thinking SSE events when the LLM produces reasoning tokens", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    llm.cannedReasoning = "Lad mig tænke...";
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration", {
+      method: "POST",
+    });
+
+    const events = await readSSE(res);
+    const thinkingEvent = events.find((e) => e.event === "thinking");
+    expect(thinkingEvent).toBeDefined();
+    expect(thinkingEvent!.data).toBe("Lad mig tænke...");
+  });
+
+  test("does not emit thinking SSE events when the model produces no reasoning", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration", {
+      method: "POST",
+    });
+
+    const events = await readSSE(res);
+    const thinkingEvents = events.filter((e) => e.event === "thinking");
+    expect(thinkingEvents).toHaveLength(0);
+  });
+
+  test("status and done events still work alongside thinking events", async () => {
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
+    llm.cannedReasoning = "ræsonnerer...";
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration", {
+      method: "POST",
+    });
+
+    const events = await readSSE(res);
+    const statusEvents = events.filter((e) => e.event === "status");
+    const doneEvent = events.find((e) => e.event === "done");
+    const thinkingEvents = events.filter((e) => e.event === "thinking");
+
+    expect(statusEvents.length).toBeGreaterThan(0);
+    expect(doneEvent).toBeDefined();
+    expect(thinkingEvents.length).toBeGreaterThan(0);
+  });
 });

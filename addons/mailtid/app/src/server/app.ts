@@ -204,6 +204,9 @@ export function createApp(deps: AppDeps): Hono {
           onStatus: (status) => {
             stream.writeSSE({ data: status, event: "status" }).catch(() => {});
           },
+          onReasoning: (token) => {
+            stream.writeSSE({ data: token, event: "thinking" }).catch(() => {});
+          },
         });
         await stream.writeSSE({ data: JSON.stringify({ meals }), event: "done" });
       } catch (err) {

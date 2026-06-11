@@ -177,4 +177,11 @@ describe("GET /static/:filename", () => {
 
     expect(html).not.toContain("OpenCode API-nøgle");
   });
+
+  test("includes a #thinking element with an AI reasoning label", async () => {
+    const html = await homeHtml();
+
+    expect(html).toMatch(/id="thinking"/);
+    expect(html).toContain("AI&apos;ens tanker:");
+  });
 });
