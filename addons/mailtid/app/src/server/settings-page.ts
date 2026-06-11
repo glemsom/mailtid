@@ -1,5 +1,6 @@
 import type { UserProfile, DIETARY_PATTERNS, ALLERGY_OPTIONS } from "../db/profile.js";
 import type { CachedModel } from "../db/settings.js";
+import type { PantryItem } from "../db/pantry.js";
 import { escapeHtml } from "./html.js";
 
 /**
@@ -27,6 +28,8 @@ export interface SettingsPageData {
   activeModel: string | null;
   /** Whether an API key has been saved (so the UI can show a hint). */
   hasApiKey: boolean;
+  /** The user's pantry staples (basisvarer). */
+  pantry: readonly PantryItem[];
 }
 
 /**
@@ -166,6 +169,37 @@ export function renderSettingsPage(data: SettingsPageData): string {
     .save-status { color: var(--accent); font-size: 14px; min-height: 1.5em; }
     .nav { display: flex; gap: 12px; align-items: baseline; }
     .nav a { color: var(--accent); }
+    .pantry-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .pantry-input-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--neutral-border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .pantry-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 12px;
+    }
+    .pantry-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      margin-bottom: 4px;
+      background: var(--neutral);
+      border: 1px solid var(--neutral-border);
+      border-radius: var(--radius);
+    }
+    .pantry-remove {
+      padding: 4px 8px;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body class="settings-page">
@@ -225,6 +259,32 @@ export function renderSettingsPage(data: SettingsPageData): string {
       <button type="submit" class="primary">Gem API-nøgle</button>
       <span id="apikey-status" class="save-status" role="status" aria-live="polite"></span>
     </form>
+  </section>
+
+  <section aria-label="Basisvarer">
+    <h2>Basisvarer</h2>
+    <p class="hint">Ingredienser du altid har på lager (fx salt, olie, ris). Disse bliver automatisk inkluderet i alle forslag.</p>
+
+    <form id="pantry-form">
+      <div class="form-group pantry-input-row">
+        <input type="text" id="pantry-input" name="pantry"
+          placeholder="fx Ris" autocomplete="off">
+        <button type="submit" class="primary">Tilføj</button>
+      </div>
+      <span id="pantry-status" class="save-status" role="status" aria-live="polite"></span>
+    </form>
+
+    <ul id="pantry-list" class="pantry-list">${
+      data.pantry
+        .map(
+          (item) =>
+            `<li data-slug="${escapeHtml(item.slug)}">` +
+            `<span>${escapeHtml(item.nameDa)}</span>` +
+            `<button class="pantry-remove danger" data-slug="${escapeHtml(item.slug)}">Fjern</button>` +
+            `</li>`,
+        )
+        .join("")
+    }</ul>
   </section>
 
   <section aria-label="Model">
@@ -348,6 +408,75 @@ export function renderSettingsPage(data: SettingsPageData): string {
         setModelStatus("Kunne ikke hente modeller.");
       } finally {
         btn.disabled = false;
+      }
+    });
+
+    // Pantry (basisvarer) management.
+    function setPantryStatus(text) {
+      var el = document.getElementById("pantry-status");
+      if (el) { el.textContent = text; setTimeout(function(){ el.textContent = ""; }, 3000); }
+    }
+    function removePantryItem(slug) {
+      var li = document.querySelector('#pantry-list li[data-slug="' + slug + '"]');
+      if (li) { li.remove(); }
+    }
+    function addPantryItemToList(slug, name) {
+      var list = document.getElementById("pantry-list");
+      if (!list) return;
+      var li = document.createElement("li");
+      li.setAttribute("data-slug", slug);
+      li.innerHTML = '<span>' + name + '</span><button class="pantry-remove danger" data-slug="' + slug + '">Fjern</button>';
+      li.querySelector(".pantry-remove").addEventListener("click", async function() {
+        var s = this.getAttribute("data-slug");
+        try {
+          var res = await fetch("/api/pantry/" + encodeURIComponent(s), { method: "DELETE" });
+          if (res.ok) {
+            removePantryItem(s);
+            setPantryStatus("Basisvare fjernet.");
+          }
+        } catch (err) {
+          setPantryStatus("Kunne ikke fjerne basisvare.");
+        }
+      });
+      list.appendChild(li);
+    }
+    // Wire existing remove buttons (server-rendered).
+    document.querySelectorAll(".pantry-remove").forEach(function(btn) {
+      btn.addEventListener("click", async function() {
+        var slug = this.getAttribute("data-slug");
+        try {
+          var res = await fetch("/api/pantry/" + encodeURIComponent(slug), { method: "DELETE" });
+          if (res.ok) {
+            removePantryItem(slug);
+            setPantryStatus("Basisvare fjernet.");
+          }
+        } catch (err) {
+          setPantryStatus("Kunne ikke fjerne basisvare.");
+        }
+      });
+    });
+    document.getElementById("pantry-form").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      var input = document.getElementById("pantry-input");
+      var name = input.value.trim();
+      if (!name) { setPantryStatus("Indtast en basisvare."); return; }
+      try {
+        var res = await fetch("/api/pantry", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: name })
+        });
+        if (res.ok) {
+          var stored = await res.json();
+          addPantryItemToList(stored.slug, stored.nameDa);
+          input.value = "";
+          setPantryStatus("Basisvare tilføjet.");
+        } else {
+          var body = await res.json().catch(function(){ return {}; });
+          setPantryStatus(body.error || "Kunne ikke tilføje basisvare.");
+        }
+      } catch (err) {
+        setPantryStatus("Kunne ikke tilføje basisvare.");
       }
     });
   </script>

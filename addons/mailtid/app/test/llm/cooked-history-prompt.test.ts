@@ -45,6 +45,7 @@ describe("buildShortFormPrompt — cooked history", () => {
         inSeasonIncludes: [{ slug: "asparges", nameDa: "Asparges" }],
         customMandatory: [],
         excludes: [],
+        pantry: [],
       },
       {
         dietaryPattern: "omnivore",

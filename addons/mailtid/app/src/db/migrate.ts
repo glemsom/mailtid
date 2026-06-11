@@ -82,4 +82,11 @@ export function runMigrations(db: Database.Database): void {
       key TEXT    NOT NULL DEFAULT ''
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pantry_items (
+      slug       TEXT    PRIMARY KEY,
+      name_da    TEXT    NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    );
+  `);
 }

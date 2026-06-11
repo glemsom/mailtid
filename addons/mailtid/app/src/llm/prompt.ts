@@ -64,6 +64,8 @@ export interface ShortFormFilter {
   inSeasonIncludes: FilteredIngredient[];
   customMandatory: string[];
   excludes: FilteredIngredient[];
+  /** Pantry staples (basisvarer) — AND alongside customMandatory. */
+  pantry: string[];
 }
 
 /** The empty filter — the default before the user has touched a chip. */
@@ -71,6 +73,7 @@ export const EMPTY_SHORT_FORM_FILTER: ShortFormFilter = {
   inSeasonIncludes: [],
   customMandatory: [],
   excludes: [],
+  pantry: [],
 };
 
 /**
@@ -152,11 +155,13 @@ export function buildShortFormPrompt(
     );
   }
 
-  if (
+  const hasFilter =
     filter.inSeasonIncludes.length > 0 ||
     filter.customMandatory.length > 0 ||
-    filter.excludes.length > 0
-  ) {
+    filter.pantry.length > 0 ||
+    filter.excludes.length > 0;
+
+  if (hasFilter) {
     lines.push("", "# Filtreringskrav");
     if (filter.inSeasonIncludes.length > 0) {
       const names = filter.inSeasonIncludes.map((i) => i.nameDa).join(", ");
@@ -165,12 +170,19 @@ export function buildShortFormPrompt(
         "  Hvert forslag skal indeholde mindst én af disse råvarer.",
       );
     }
-    if (filter.customMandatory.length > 0) {
-      const names = filter.customMandatory.join(", ");
+    if (filter.customMandatory.length > 0 || filter.pantry.length > 0) {
+      const mandatory = filter.customMandatory.join(", ");
+      const pantry = filter.pantry.join(", ");
+      const allMandatory = [mandatory, pantry].filter((s) => s.length > 0).join(", ");
       lines.push(
-        "- Skal indeholde: " + names + ".",
+        "- Skal indeholde: " + allMandatory + ".",
         "  Hvert forslag skal indeholde alle disse råvarer (fx rester fra køleskabet).",
       );
+      if (filter.pantry.length > 0) {
+        lines.push(
+          "  Basisvarer (altid på lager): " + pantry + ".",
+        );
+      }
     }
     if (filter.excludes.length > 0) {
       const names = filter.excludes.map((i) => i.nameDa).join(", ");

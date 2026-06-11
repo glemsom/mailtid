@@ -16,6 +16,7 @@ const EMPTY_FILTER: ShortFormFilter = {
   inSeasonIncludes: [],
   customMandatory: [],
   excludes: [],
+  pantry: [],
 };
 
 describe("buildShortFormPrompt with profile", () => {
@@ -91,6 +92,7 @@ describe("buildShortFormPrompt with profile", () => {
       inSeasonIncludes: [{ slug: "asparges", nameDa: "Asparges" }],
       customMandatory: ["Ris"],
       excludes: [{ slug: "champignon", nameDa: "Champignon" }],
+      pantry: [],
     };
     const prompt = buildShortFormPrompt(6, JUNE_INGREDIENTS, filter, profile);
 

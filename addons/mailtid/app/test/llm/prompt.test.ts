@@ -83,6 +83,7 @@ describe("buildShortFormPrompt", () => {
       inSeasonIncludes: [{ slug: "asparges", nameDa: "Asparges" }],
       customMandatory: [],
       excludes: [],
+      pantry: [],
     });
 
     const filterIdx = prompt.indexOf("# Filtreringskrav");

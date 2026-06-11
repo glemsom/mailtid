@@ -9,6 +9,7 @@ import { extractJsonObject } from "../llm/response.js";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
+import type { PantryRepository } from "../db/pantry.js";
 import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
 import type { CookedHistoryRepository } from "../db/cooked-history.js";
@@ -173,6 +174,7 @@ function validateStep(
 export interface InspirationServiceFilterDeps {
   filterState: FilterStateRepository;
   customIngredients: CustomIngredientsRepository;
+  pantry: PantryRepository;
 }
 
 /**
@@ -278,7 +280,7 @@ export class InspirationService {
     inSeason: readonly SeasonalityIngredient[],
   ): ShortFormFilter {
     if (!this.filterDeps) {
-      return { inSeasonIncludes: [], customMandatory: [], excludes: [] };
+      return { inSeasonIncludes: [], customMandatory: [], excludes: [], pantry: [] };
     }
     const inSeasonSlugs = new Set(inSeason.map((i) => i.slug));
     const bySlug = new Map(inSeason.map((i) => [i.slug, i]));
@@ -293,10 +295,14 @@ export class InspirationService {
     const customMandatory = this.filterDeps.customIngredients
       .list()
       .map((i) => i.nameDa);
+    const pantry = this.filterDeps.pantry
+      .list()
+      .map((i) => i.nameDa);
     return {
       inSeasonIncludes: toFiltered(filterState.includes),
       customMandatory,
       excludes: toFiltered(filterState.excludes),
+      pantry,
     };
   }
 }
@@ -313,7 +319,7 @@ export function buildStatusMessage(
 ): string {
   const ingredientCount = inSeason.length;
   const filterCount = filter
-    ? filter.inSeasonIncludes.length + filter.customMandatory.length + filter.excludes.length
+    ? filter.inSeasonIncludes.length + filter.customMandatory.length + filter.excludes.length + filter.pantry.length
     : 0;
 
   let msg = `Bygger forespørgsel: ${ingredientCount} råvarer, ${filterCount} filtre`;

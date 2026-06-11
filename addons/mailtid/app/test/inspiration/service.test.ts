@@ -5,6 +5,7 @@ import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { FilterStateRepository } from "../../src/db/filter-state.js";
 import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
+import { PantryRepository } from "../../src/db/pantry.js";
 import { ProfileRepository } from "../../src/db/profile.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import {
@@ -221,12 +222,13 @@ describe("shortForm status messages", () => {
     // Activate some filters.
     filterState.save({ includes: ["jordbaer", "asparges"], excludes: ["champignon"] });
     customIngredients.add("ris");
+    const pantry = new PantryRepository(db);
 
     const service = new InspirationService(
       repo,
       llm,
       () => 6,
-      { filterState, customIngredients },
+      { filterState, customIngredients, pantry },
       profile,
       undefined,
       cookedHistory,

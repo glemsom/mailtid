@@ -6,6 +6,7 @@ import { streamSSE } from "hono/streaming";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
+import type { PantryRepository } from "../db/pantry.js";
 import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
 import type { FavouritesRepository } from "../db/favourites.js";
@@ -45,6 +46,8 @@ export interface AppDeps {
   filterState: FilterStateRepository;
   /** Read/write access to the user's custom mandatory ingredients. */
   customIngredients: CustomIngredientsRepository;
+  /** Read/write access to the user's pantry staples (basisvarer). */
+  pantry: PantryRepository;
   /** Read/write access to the user's dietary profile. */
   profile: ProfileRepository;
   /** Read/write access to settings (active model + model cache). */
@@ -111,6 +114,7 @@ export function createApp(deps: AppDeps): Hono {
         models: deps.settings.listModels(),
         activeModel: deps.settings.getActiveModel(),
         hasApiKey: deps.hasApiKey(),
+        pantry: deps.pantry.list(),
       }),
     );
   });
@@ -607,6 +611,52 @@ export function createApp(deps: AppDeps): Hono {
     deps.seasonality.resetSeed();
     const count = deps.seasonality.findAll().length;
     return c.json({ ok: true, count });
+  });
+
+  /**
+   * `GET /api/pantry` — return all pantry staples the user has
+   * added, oldest first. Items is an array of `{ slug, nameDa }`.
+   */
+  app.get("/api/pantry", (c) => {
+    return c.json({ items: deps.pantry.list() });
+  });
+
+  /**
+   * `POST /api/pantry` — add a pantry staple.
+   * Body: `{ "name": "Ris" }`. Returns the stored `{ slug, nameDa }`
+   * shape and 201 Created. Idempotent: a second add of the same
+   * name returns the same shape with 201.
+   */
+  app.post("/api/pantry", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "request body must be JSON" }, 400);
+    }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "request body must be an object" }, 400);
+    }
+    const raw = (body as { name?: unknown }).name;
+    if (typeof raw !== "string" || raw.trim().length === 0) {
+      return c.json({ error: "name must be a non-empty string" }, 400);
+    }
+    try {
+      const stored = deps.pantry.add(raw);
+      return c.json(stored, 201);
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
+    }
+  });
+
+  /**
+   * `DELETE /api/pantry/:slug` — remove a previously added pantry
+   * staple. Idempotent: 204 even when the slug is not present.
+   */
+  app.delete("/api/pantry/:slug", (c) => {
+    const slug = decodeURIComponent(c.req.param("slug"));
+    deps.pantry.remove(slug);
+    return c.body(null, 204);
   });
 
   /**

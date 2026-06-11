@@ -5,6 +5,7 @@ import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { FilterStateRepository } from "../../src/db/filter-state.js";
 import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
+import { PantryRepository } from "../../src/db/pantry.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 
@@ -19,12 +20,13 @@ function makeService(opts: {
   const seasonality = new SeasonalityRepository(db);
   const filterState = new FilterStateRepository(db);
   const customIngredients = new CustomIngredientsRepository(db);
+  const pantry = new PantryRepository(db);
   const llm = new MockLLMClient(CANNED);
   const service = new InspirationService(
     seasonality,
     llm,
     () => opts.month,
-    { filterState, customIngredients },
+    { filterState, customIngredients, pantry },
   );
   return { service, llm, db };
 }
