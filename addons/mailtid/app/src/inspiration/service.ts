@@ -138,17 +138,24 @@ function validateIngredient(
       `meals[${mealIndex}].ingredients[${ingIndex}].name must be a non-empty string`,
     );
   }
-  if (typeof obj.amount !== "string" || obj.amount.length === 0) {
-    throw new Error(
-      `meals[${mealIndex}].ingredients[${ingIndex}].amount must be a non-empty string`,
-    );
-  }
-  if (typeof obj.unit !== "string" || obj.unit.length === 0) {
-    throw new Error(
-      `meals[${mealIndex}].ingredients[${ingIndex}].unit must be a non-empty string`,
-    );
-  }
-  return { name: obj.name, amount: obj.amount, unit: obj.unit };
+  // LLMs sometimes emit amounts/units as numbers (valid JSON) or
+  // omit them entirely. Coerce numbers to strings and tolerate empty
+  // strings — a missing amount is a rendering glitch, not a crash.
+  const amount = normalizeStringField(obj.amount);
+  const unit = normalizeStringField(obj.unit);
+  return { name: obj.name, amount, unit };
+}
+
+/**
+ * Coerce a field that should be a string into one, tolerating the
+ * common LLM mistake of emitting a number (e.g. `"amount": 500`).
+ * Returns an empty string for null / undefined / missing fields so
+ * the UI can render a partial ingredient row instead of crashing.
+ */
+function normalizeStringField(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
 }
 
 function validateStep(

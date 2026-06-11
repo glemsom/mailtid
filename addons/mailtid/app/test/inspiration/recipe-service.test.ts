@@ -199,12 +199,24 @@ describe("parseRecipeResponse", () => {
     expect(() => parseRecipeResponse(JSON.stringify({ title: "X" }))).toThrow();
   });
 
-  test("throws when an ingredient is missing name, amount, or unit", () => {
+  test("throws when an ingredient is missing name", () => {
+    const bad = JSON.stringify({
+      ...CANNED_WIRE,
+      ingredients: [{ amount: "500", unit: "g" }],
+    });
+    expect(() => parseRecipeResponse(bad)).toThrow(/name must be a non-empty string/);
+  });
+
+  test("tolerates an ingredient missing amount or unit (lenient — LLM safety net)", () => {
     const bad = JSON.stringify({
       ...CANNED_WIRE,
       ingredients: [{ name: "Asparges", amount: "500" }],
     });
-    expect(() => parseRecipeResponse(bad)).toThrow();
+    // Must not throw — missing unit defaults to ""
+    const recipe = parseRecipeResponse(bad);
+    expect(recipe.ingredients[0]!.unit).toBe("");
+    expect(recipe.ingredients[0]!.name).toBe("Asparges");
+    expect(recipe.ingredients[0]!.amount).toBe("500");
   });
 
   test("throws when steps is empty", () => {
