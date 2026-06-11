@@ -13,6 +13,14 @@ import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
 import type { CookedHistoryRepository } from "../db/cooked-history.js";
 
+/** Danish labels for dietary patterns shown in status messages. */
+const DIETARY_LABELS: Record<string, string> = {
+  omnivore: "altspisende",
+  pescatarian: "pescetar",
+  vegetarian: "vegetar",
+  vegan: "vegan",
+};
+
 /**
  * A single short-form Meal Inspiration. Returned by the home-screen
  * 5-meal call and shown as a card. A full recipe (ingredients,
@@ -113,7 +121,9 @@ export class InspirationService {
    */
   async shortForm(onStatus?: (status: string) => void): Promise<MealInspiration[]> {
     const month = this.monthProvider();
-    onStatus?.("Henter sæsonbestemte råvarer...");
+
+    // Phase 1: fetch data from SQLite.
+    onStatus?.("Henter ingredienser og profil...");
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const filter = this.filterDeps
@@ -125,9 +135,13 @@ export class InspirationService {
           .listSince(Date.now() - 14 * 24 * 60 * 60 * 1000)
           .map((m) => m.title)
       : undefined;
-      
-    onStatus?.("Genererer forslag med AI...");
+
+    // Phase 2: prompt built — emit statistics.
     const prompt = buildShortFormPrompt(month, inSeason, filter, profile, cookedTitles);
+    onStatus?.(buildStatusMessage(inSeason, filter, profile));
+
+    // Phase 3: call the LLM.
+    onStatus?.("AI tænker...");
     const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
     const raw = await this.llm.chat(prompt, activeModel ? { model: activeModel } : undefined);
     return parseShortFormResponse(raw);
@@ -166,4 +180,27 @@ export class InspirationService {
       excludes: toFiltered(filterState.excludes),
     };
   }
+}
+
+/**
+ * Build the "Bygger forespørgsel: ..." status message with
+ * concrete statistics the user can see. Pure function so tests
+ * can call it directly.
+ */
+export function buildStatusMessage(
+  inSeason: readonly SeasonalityIngredient[],
+  filter: ShortFormFilter | undefined,
+  profile: { dietaryPattern: string } | undefined,
+): string {
+  const ingredientCount = inSeason.length;
+  const filterCount = filter
+    ? filter.inSeasonIncludes.length + filter.customMandatory.length + filter.excludes.length
+    : 0;
+
+  let msg = `Bygger forespørgsel: ${ingredientCount} råvarer, ${filterCount} filtre`;
+  if (profile) {
+    const label = DIETARY_LABELS[profile.dietaryPattern] ?? profile.dietaryPattern;
+    msg += `, kostprofil: ${label}`;
+  }
+  return msg;
 }

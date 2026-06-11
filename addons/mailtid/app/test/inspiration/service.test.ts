@@ -3,10 +3,14 @@ import Database from "better-sqlite3";
 import { runMigrations } from "../../src/db/migrate.js";
 import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
+import { FilterStateRepository } from "../../src/db/filter-state.js";
+import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
+import { ProfileRepository } from "../../src/db/profile.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import {
   InspirationService,
   parseShortFormResponse,
+  type InspirationServiceFilterDeps,
 } from "../../src/inspiration/service.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 
@@ -92,6 +96,124 @@ describe("InspirationService.shortForm", () => {
 
     const prompt = llm.prompts[0] ?? "";
     expect(prompt).not.toContain("Tidligere lavet");
+  });
+});
+
+describe("shortForm status messages", () => {
+  test("emits three status phases: fetch, build-stats, AI-call", async () => {
+    const statuses: string[] = [];
+    const { service } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    await service.shortForm((status) => statuses.push(status));
+
+    expect(statuses).toHaveLength(3);
+    expect(statuses[0]).toBe("Henter ingredienser og profil...");
+    expect(statuses[1]).toMatch(/^Bygger forespørgsel: \d+ råvarer, \d+ filtre/);
+    expect(statuses[2]).toBe("AI tænker...");
+  });
+
+  test("build-stats message includes ingredient count for the month", async () => {
+    const statuses: string[] = [];
+    const { service } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    await service.shortForm((status) => statuses.push(status));
+
+    // June has a known set of ingredients — the exact count doesn't
+    // matter, but it must appear in the message.
+    const buildMsg = statuses[1] ?? "";
+    const match = buildMsg.match(/^Bygger forespørgsel: (\d+) råvarer/);
+    expect(match).not.toBeNull();
+    const count = Number(match![1]);
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test("build-stats message includes filter constraint count when filters are active", async () => {
+    const db = new Database(":memory:");
+    runMigrations(db);
+    importSeasonalitySeed(db);
+    const repo = new SeasonalityRepository(db);
+    const filterState = new FilterStateRepository(db);
+    const customIngredients = new CustomIngredientsRepository(db);
+    const profile = new ProfileRepository(db);
+    const llm = new MockLLMClient(CANNED);
+    const cookedHistory = new CookedHistoryRepository(db);
+
+    // Save a profile so profile stats appear.
+    profile.save({
+      dietaryPattern: "vegetarian",
+      allergies: [],
+      dislikes: "",
+    });
+
+    // Activate some filters.
+    filterState.save({ includes: ["jordbaer", "asparges"], excludes: ["champignon"] });
+    customIngredients.add("ris");
+
+    const service = new InspirationService(
+      repo,
+      llm,
+      () => 6,
+      { filterState, customIngredients },
+      profile,
+      undefined,
+      cookedHistory,
+    );
+
+    const statuses: string[] = [];
+    await service.shortForm((status) => statuses.push(status));
+
+    const buildMsg = statuses[1] ?? "";
+    // 2 includes + 1 custom + 1 exclude = 4 filter constraints
+    expect(buildMsg).toMatch(/^Bygger forespørgsel: \d+ råvarer, 4 filtre/);
+    expect(buildMsg).toContain("kostprofil: vegetar");
+  });
+
+  test("build-stats message omits dietary pattern when profile is not set", async () => {
+    const statuses: string[] = [];
+    const { service } = makeService({ cannedResponse: CANNED, month: 6 });
+
+    await service.shortForm((status) => statuses.push(status));
+
+    const buildMsg = statuses[1] ?? "";
+    expect(buildMsg).not.toContain("kostprofil:");
+  });
+
+  test("build-stats message includes dietary pattern name when profile is set", async () => {
+    const db = new Database(":memory:");
+    runMigrations(db);
+    importSeasonalitySeed(db);
+    const repo = new SeasonalityRepository(db);
+    const profile = new ProfileRepository(db);
+    const llm = new MockLLMClient(CANNED);
+    const cookedHistory = new CookedHistoryRepository(db);
+
+    profile.save({
+      dietaryPattern: "vegan",
+      allergies: [],
+      dislikes: "",
+    });
+
+    const service = new InspirationService(
+      repo,
+      llm,
+      () => 6,
+      undefined,
+      profile,
+      undefined,
+      cookedHistory,
+    );
+
+    const statuses: string[] = [];
+    await service.shortForm((status) => statuses.push(status));
+
+    const buildMsg = statuses[1] ?? "";
+    expect(buildMsg).toContain("kostprofil: vegan");
+  });
+
+  test("status callback is optional — no crash when omitted", async () => {
+    const { service } = makeService({ cannedResponse: CANNED, month: 6 });
+    const meals = await service.shortForm();
+    expect(meals).toHaveLength(5);
   });
 });
 
