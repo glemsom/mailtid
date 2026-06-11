@@ -7,3 +7,4 @@ build/
 .vite/
 addons/mailtid/app/data/mailtid.db
 addons/mailtid/app/data/mailtid.db-*
+addons/mailtid/app/dev-options.json

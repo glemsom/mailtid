@@ -64,6 +64,7 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
   </section>
 
   <section id="recipe-display" aria-label="Fuld opskrift"></section>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
 
   <script>
     // ---- BEGIN mirror of src/server/recipe-render.ts ----
@@ -114,6 +115,52 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
       if (el) el.textContent = text;
     }
 
+    async function fetchRecipe(title, description) {
+      const res = await fetch("/api/inspiration/recipe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title, description }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Kunne ikke hente opskriften.");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let currentEvent = "message";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (currentEvent === "done") {
+              return JSON.parse(data);
+            } else if (currentEvent === "error") {
+              const errData = JSON.parse(data);
+              throw new Error(errData.error || "Kunne ikke hente opskriften.");
+            } else if (currentEvent === "status") {
+              setStatus(data);
+            }
+          } else if (line === "") {
+            currentEvent = "message";
+          }
+        }
+      }
+
+      throw new Error("Uventet afslutning på stream");
+    }
+
     for (const btn of document.querySelectorAll(".recipe-btn")) {
       btn.addEventListener("click", async () => {
         const title = btn.getAttribute("data-recipe-title") || "";
@@ -122,26 +169,17 @@ export function renderFavouritesPage(data: FavouritesPageData): string {
         const previousLabel = btn.textContent || "Se opskrift";
         btn.textContent = "Henter opskrift...";
         try {
-          const res = await fetch("/api/inspiration/recipe", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ title, description }),
-          });
-          if (res.ok) {
-            const recipe = await res.json();
-            const el = document.getElementById("recipe-display");
-            if (el) {
-              el.innerHTML = renderRecipeHtml(recipe);
-              el.querySelector(".close-recipe")?.addEventListener("click", function () {
-                el.innerHTML = "";
-              });
-              el.scrollIntoView({ behavior: "smooth" });
-            }
-          } else {
-            setStatus("Kunne ikke hente opskriften. Prøv igen.");
+          const recipe = await fetchRecipe(title, description);
+          const el = document.getElementById("recipe-display");
+          if (el) {
+            el.innerHTML = renderRecipeHtml(recipe);
+            el.querySelector(".close-recipe")?.addEventListener("click", function () {
+              el.innerHTML = "";
+            });
+            el.scrollIntoView({ behavior: "smooth" });
           }
         } catch (err) {
-          setStatus("Kunne ikke hente opskriften. Prøv igen.");
+          setStatus(err.message || "Kunne ikke hente opskriften. Prøv igen.");
         } finally {
           btn.disabled = false;
           btn.textContent = previousLabel;

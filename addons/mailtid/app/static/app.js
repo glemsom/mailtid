@@ -51,7 +51,7 @@ function setStatus(text) {
 }
 
 function escapeHtml(raw) {
-  return raw
+  return String(raw)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
