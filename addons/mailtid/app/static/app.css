@@ -283,9 +283,25 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   margin-bottom: 12px;
   overflow: hidden;
   grid-column: 1 / -1;
+  max-height: 500px;
+  opacity: 1;
+  transition: max-height 200ms ease-out, opacity 200ms ease-out, margin-bottom 200ms ease-out;
 }
-.thinking-panel[hidden] {
-  display: none;
+
+/* Collapsed state: zero-height, faded, no margin.  JS sets this
+   class instead of the [hidden] attribute so CSS transitions work. */
+.thinking-panel.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+/* Collapsing modifier: overrides the appear duration/timing for
+   dismiss and auto-collapse (300ms ease-in, slower fade-away). */
+.thinking-panel.collapsing {
+  transition-duration: 300ms;
+  transition-timing-function: ease-in;
 }
 
 .thinking-header {
@@ -410,7 +426,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .skel-line {
   background: var(--skeleton);
   border-radius: 4px;
-  animation: pulse 1.5s ease-in-out infinite;
 }
 .skel-title {
   height: 18px;
@@ -435,7 +450,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   height: 28px;
   background: var(--skeleton);
   border-radius: var(--radius);
-  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -458,6 +472,23 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 @media (prefers-reduced-motion: no-preference) {
   .thinking-phase.active::before {
     animation: dot-pulse 1.5s ease-in-out infinite;
+  }
+  .skel-line,
+  .skel-btn {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-panel,
+  .thinking-panel.collapsed,
+  .thinking-panel.collapsing {
+    transition: none !important;
+  }
+  .thinking-phase.active::before,
+  .skel-line,
+  .skel-btn {
+    animation: none !important;
   }
 }
 

@@ -178,12 +178,12 @@ describe("GET /static/:filename", () => {
     expect(html).not.toContain("OpenCode API-nøgle");
   });
 
-  test("renders phase-aware thinking panel hidden by default", async () => {
+  test("renders phase-aware thinking panel collapsed by default", async () => {
     const html = await homeHtml();
 
-    // The panel exists but is hidden on page load.
+    // The panel exists but is collapsed (zero-height) on page load.
     expect(html).toMatch(/id="thinking-panel"/);
-    expect(html).toContain("hidden");
+    expect(html).toContain("collapsed");
   });
 
   test("thinking panel contains a phase label, dismiss button, and raw-token toggle", async () => {

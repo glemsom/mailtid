@@ -60,15 +60,84 @@ function escapeHtml(raw) {
 }
 
 /**
+ * Reveal the thinking panel with a slide-down animation (200ms ease-out).
+ * Measures the panel's natural height so the max-height transition animates
+ * to exactly the right size.  Cleans up inline styles after the transition.
+ */
+function revealPanel() {
+  const panel = document.getElementById("thinking-panel");
+  if (!panel) return;
+  if (!panel.classList.contains("collapsed")) return; // already visible
+
+  panel.classList.remove("collapsed");
+  // Force a reflow so the browser picks up the uncollapsed state
+  // before we lock max-height for the transition.
+  const targetHeight = panel.scrollHeight;
+  panel.style.maxHeight = "0px";
+  panel.offsetHeight; // force reflow
+  panel.style.maxHeight = targetHeight + "px";
+
+  // After the appear transition finishes, remove inline max-height
+  // so the panel can grow as tokens are appended.
+  panel.addEventListener("transitionend", function onReveal(e) {
+    if (e.propertyName === "max-height") {
+      panel.style.maxHeight = "";
+      panel.removeEventListener("transitionend", onReveal);
+    }
+  });
+}
+
+/**
+ * Collapse the thinking panel with an upward animation.
+ *
+ * @param {number} [duration=300] — transition duration in ms.
+ *   Uses 300ms ease-in (the .collapsing class).
+ */
+function collapsePanel(duration) {
+  const panel = document.getElementById("thinking-panel");
+  if (!panel) return;
+  if (panel.classList.contains("collapsed")) return; // already hidden
+
+  // Lock the current height so the transition starts from it.
+  panel.style.maxHeight = panel.scrollHeight + "px";
+  if (duration !== undefined) {
+    panel.style.transitionDuration = duration + "ms";
+  }
+  panel.classList.add("collapsing");
+  panel.offsetHeight; // force reflow
+  panel.classList.add("collapsed");
+
+  // Clean up after the collapse transition finishes.
+  panel.addEventListener("transitionend", function onCollapse(e) {
+    if (e.propertyName === "max-height") {
+      panel.style.maxHeight = "";
+      panel.style.transitionDuration = "";
+      panel.classList.remove("collapsing");
+      panel.removeEventListener("transitionend", onCollapse);
+    }
+  });
+}
+
+/**
+ * Immediately hide the panel without animation (e.g. on error or
+ * when starting a new request).
+ */
+function hidePanelInstant() {
+  const panel = document.getElementById("thinking-panel");
+  if (!panel) return;
+  panel.classList.add("collapsed");
+  panel.classList.remove("collapsing");
+  panel.style.maxHeight = "";
+  panel.style.transitionDuration = "";
+}
+
+/**
  * Show the thinking panel and display a phase label.
  * Called when a status SSE event arrives.
  */
 function showPhase(phase) {
-  const panel = document.getElementById("thinking-panel");
   const phaseEl = document.getElementById("thinking-phase");
-  if (panel) {
-    panel.hidden = false;
-  }
+  revealPanel();
   if (phaseEl) {
     phaseEl.textContent = phase;
     // Highlight the current phase.
@@ -171,12 +240,9 @@ function finishPhase() {
   if (details) {
     details.open = false;
   }
-  // Auto-hide the panel after a short delay.
+  // Auto-collapse the panel after a short delay (4s).
   setTimeout(() => {
-    const panel = document.getElementById("thinking-panel");
-    if (panel && !panel.hidden) {
-      panel.hidden = true;
-    }
+    collapsePanel();
   }, 4000);
 }
 
@@ -185,13 +251,10 @@ function finishPhase() {
  * a new inspiration request starts.
  */
 function clearThinking() {
-  const panel = document.getElementById("thinking-panel");
   const phaseEl = document.getElementById("thinking-phase");
   const tokens = document.getElementById("thinking-tokens");
   const details = document.getElementById("thinking-details");
-  if (panel) {
-    panel.hidden = true;
-  }
+  hidePanelInstant();
   if (phaseEl) {
     phaseEl.textContent = "";
     phaseEl.classList.remove("active", "finished");
@@ -215,9 +278,8 @@ function clearThinking() {
  */
 function renderSkeleton() {
   clearThinking();
-  // Show the thinking panel inside #meals.
-  const panel = document.getElementById("thinking-panel");
-  if (panel) panel.hidden = false;
+  // Show the thinking panel with slide-down animation.
+  revealPanel();
 
   const container = document.getElementById("meal-cards");
   if (!container) return;
@@ -571,9 +633,8 @@ function wireRefresh() {
 function showError(message) {
   const container = document.getElementById("meal-cards");
   if (!container) return;
-  // Hide the thinking panel on error.
-  const panel = document.getElementById("thinking-panel");
-  if (panel) panel.hidden = true;
+  // Hide the thinking panel on error (instant, no animation).
+  hidePanelInstant();
   // Remove any summary line.
   const existingSummary = document.querySelector(".thinking-summary-line");
   if (existingSummary) existingSummary.remove();
@@ -654,10 +715,7 @@ function wireThinkingDismiss() {
   const dismissBtn = document.getElementById("thinking-dismiss");
   if (dismissBtn) {
     dismissBtn.addEventListener("click", () => {
-      const panel = document.getElementById("thinking-panel");
-      if (panel) {
-        panel.hidden = true;
-      }
+      collapsePanel();
     });
   }
 }

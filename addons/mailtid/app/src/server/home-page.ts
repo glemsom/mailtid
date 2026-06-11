@@ -130,7 +130,7 @@ export function renderHomePage(data: HomePageData): string {
   <section id="results" aria-label="Forslag">
     <button id="refresh" type="button" class="primary">Vis 5 nye</button>
     <div id="meals" class="meals">
-      <div id="thinking-panel" class="thinking-panel" hidden>
+      <div id="thinking-panel" class="thinking-panel collapsed">
         <div class="thinking-header">
           <span id="thinking-phase" class="thinking-phase" role="status" aria-live="polite"></span>
           <button id="thinking-dismiss" class="thinking-dismiss" type="button" aria-label="Skjul tænkeboks">Skjul ▲</button>

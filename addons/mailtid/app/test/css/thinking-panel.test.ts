@@ -110,4 +110,79 @@ describe("thinking panel CSS (kitchen thought visual identity)", () => {
     // are readable inside the italic reasoning text.
     expect(chipBody).toMatch(/font-style:\s*normal/);
   });
+
+  test("thinking panel has transitions for smooth appear and collapse", () => {
+    const panelBody = ruleBody(".thinking-panel");
+    expect(panelBody).toBeTruthy();
+
+    // Must declare a transition shorthand that includes max-height and opacity.
+    expect(panelBody).toMatch(/transition/);
+    expect(panelBody).toMatch(/max-height/);
+    expect(panelBody).toMatch(/opacity/);
+  });
+
+  test("collapsed thinking panel has zero max-height and hidden overflow", () => {
+    const collapsedBody = ruleBody(".thinking-panel.collapsed");
+    expect(collapsedBody).toBeTruthy();
+
+    // max-height: 0 so the panel takes no space.
+    expect(collapsedBody).toMatch(/max-height:\s*0/);
+    // opacity: 0 so it fades out.
+    expect(collapsedBody).toMatch(/opacity:\s*0/);
+    // overflow hidden to clip content during transition.
+    expect(collapsedBody).toMatch(/overflow:\s*hidden/);
+  });
+
+  test("collapsing class uses 300ms ease-in for dismiss timing", () => {
+    const collapsingBody = ruleBody(".thinking-panel.collapsing");
+    expect(collapsingBody).toBeTruthy();
+
+    // Dismiss/auto-collapse uses 300ms, longer than appear (200ms).
+    expect(collapsingBody).toMatch(/300ms/);
+    expect(collapsingBody).toMatch(/ease-in/);
+  });
+
+  test("skeleton pulse animations are gated by prefers-reduced-motion: no-preference", () => {
+    const noPrefStart = css.indexOf("@media (prefers-reduced-motion: no-preference)");
+    expect(noPrefStart).toBeGreaterThan(-1);
+
+    // Find the opening brace of the @media block and start after it.
+    let bracePos = css.indexOf("{", noPrefStart);
+    expect(bracePos).toBeGreaterThan(-1);
+    let depth = 1;
+    let i = bracePos + 1;
+    while (i < css.length && depth > 0) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}") depth--;
+      i++;
+    }
+    const block = css.slice(bracePos + 1, i - 1);
+
+    // Must reference the skeleton pulse animation.
+    expect(block).toMatch(/pulse/);
+    // Must reference the dot-pulse animation.
+    expect(block).toMatch(/dot-pulse/);
+  });
+
+  test("all panel transitions disabled when prefers-reduced-motion: reduce", () => {
+    const reduceStart = css.indexOf("@media (prefers-reduced-motion: reduce)");
+    expect(reduceStart).toBeGreaterThan(-1);
+
+    // Find the opening brace of the @media block.
+    let bracePos = css.indexOf("{", reduceStart);
+    expect(bracePos).toBeGreaterThan(-1);
+    let depth = 1;
+    let i = bracePos + 1;
+    while (i < css.length && depth > 0) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}") depth--;
+      i++;
+    }
+    const block = css.slice(bracePos + 1, i - 1);
+
+    // Must disable transitions on the panel.
+    expect(block).toMatch(/transition:\s*none/);
+    // Must disable animations too.
+    expect(block).toMatch(/animation:\s*none/);
+  });
 });
