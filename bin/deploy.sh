@@ -52,13 +52,6 @@ elif [[ -z "${PASSWORD}" ]]; then
   RUN=()
 fi
 
-# Build TypeScript locally (produces dist/ needed by Dockerfile)
-echo "deploy: building TypeScript locally"
-( cd "${SRC}/app" && npm run build ) || {
-  echo "deploy: local build failed" >&2
-  exit 1
-}
-
 echo "deploy: scp ${SRC} -> ${DST_HOST}:${DST_PATH}"
 # Ensure the remote directory exists
 "${RUN[@]}" ssh "${SSH_OPTS[@]}" "${DST_HOST}" mkdir -p "${DST_PATH}"

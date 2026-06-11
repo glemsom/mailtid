@@ -1,4 +1,5 @@
-import type { UserProfile, DIETARY_PATTERNS, ALLERGY_OPTIONS } from "../db/profile.js";
+import type { UserProfile } from "../db/profile.js";
+import { DIETARY_PATTERNS, ALLERGY_OPTIONS } from "../db/profile.js";
 import type { CachedModel } from "../db/settings.js";
 import type { PantryItem } from "../db/pantry.js";
 import { escapeHtml } from "./html.js";
