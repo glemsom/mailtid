@@ -101,6 +101,10 @@ export function renderSettingsPage(data: SettingsPageData): string {
       `</optgroup>`;
   }
   const modelCount = data.models.length;
+  // Warn when the saved active model is no longer in the cached list.
+  const activeModelInCache =
+    data.activeModel !== null &&
+    data.models.some((m) => m.modelId === data.activeModel);
 
   return `<!doctype html>
 <html lang="da">
@@ -238,6 +242,13 @@ export function renderSettingsPage(data: SettingsPageData): string {
         ? `${modelCount} modeller tilgængelige.`
         : "Ingen modeller hentet endnu — tryk \"Opdater modeller\"."
     }</p>
+    ${
+      data.activeModel !== null && !activeModelInCache
+        ? `<p class="model-info" style="color:var(--error, #c00);">` +
+          `⚠ Din tidligere model "${escapeHtml(data.activeModel)}" er ikke længere tilgængelig. Vælg en ny model.` +
+          `</p>`
+        : ""
+    }
     <span id="model-status" class="save-status" role="status" aria-live="polite"></span>
   </section>
 
@@ -301,6 +312,10 @@ export function renderSettingsPage(data: SettingsPageData): string {
     });
     document.getElementById("model-picker").addEventListener("change", async function() {
       var model = this.value;
+      if (!model) {
+        setModelStatus("Vælg en model.");
+        return;
+      }
       try {
         var res = await fetch("/api/settings", {
           method: "PUT",
@@ -309,6 +324,9 @@ export function renderSettingsPage(data: SettingsPageData): string {
         });
         if (res.ok) {
           setModelStatus("Model gemt.");
+        } else {
+          var errBody = await res.json().catch(function(){ return {}; });
+          setModelStatus(errBody.error || "Kunne ikke gemme modelvalg.");
         }
       } catch (err) {
         setModelStatus("Kunne ikke gemme modelvalg.");

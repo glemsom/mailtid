@@ -144,11 +144,28 @@ export class RecipeService {
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const prompt = buildRecipePrompt(meal, inSeason);
-    const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
+    const activeModel = this.resolveActiveModel();
     const raw = await this.llm.chat(
       prompt,
       activeModel ? { model: activeModel } : undefined,
     );
     return parseRecipeResponse(raw);
+  }
+
+  /**
+   * Resolve the active model for an LLM call. Ordered fallback:
+   * 1. The user's explicitly saved model (from settings page).
+   * 2. The first free model in the cached model list.
+   * 3. Any cached model (if no free models exist).
+   * 4. `undefined` — lets the LLMClient pick its own hardcoded default.
+   */
+  private resolveActiveModel(): string | undefined {
+    const active = this.settingsRepo?.getActiveModel();
+    if (active) return active;
+
+    const allModels = this.settingsRepo?.listModels();
+    if (!allModels || allModels.length === 0) return undefined;
+    const freeModel = allModels.find((m) => m.tier === "free");
+    return freeModel?.modelId ?? allModels[0]?.modelId;
   }
 }

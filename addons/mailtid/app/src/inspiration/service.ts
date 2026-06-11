@@ -150,12 +150,36 @@ export class InspirationService {
 
     // Phase 3: call the LLM via streaming.
     opts?.onStatus?.("AI tænker...");
-    const activeModel = this.settingsRepo?.getActiveModel() ?? undefined;
+    const activeModel = this.resolveActiveModel();
     const raw = await this.llm.stream(prompt, {
       model: activeModel ?? undefined,
       onReasoning: opts?.onReasoning,
     });
     return parseShortFormResponse(raw);
+  }
+
+  /**
+   * Resolve the active model for an LLM call. Ordered fallback:
+   * 1. The user's explicitly saved model (from settings page).
+   * 2. The first free model in the cached model list.
+   * 3. Any cached model (if no free models exist).
+   * 4. `undefined` — lets the LLMClient pick its own hardcoded default.
+   *
+   * The fallback chain ensures that after a model-cache refresh,
+   * even if the user's previously-saved model was removed from the
+   * API, a valid cached model is always attempted before the
+   * hardcoded default — which itself may have been removed.
+   */
+  private resolveActiveModel(): string | undefined {
+    // 1. User's explicit choice.
+    const active = this.settingsRepo?.getActiveModel();
+    if (active) return active;
+
+    // 2. Fall back to first free cached model.
+    const allModels = this.settingsRepo?.listModels();
+    if (!allModels || allModels.length === 0) return undefined;
+    const freeModel = allModels.find((m) => m.tier === "free");
+    return freeModel?.modelId ?? allModels[0]?.modelId;
   }
 
   /**

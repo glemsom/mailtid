@@ -101,4 +101,19 @@ describe("GET /indstillinger (settings page)", () => {
 
     expect(html).toMatch(/<option value="opencode-go\/b"[^>]*selected/);
   });
+
+  test("warns when active model is no longer in the cached list", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: CANNED, month: 6 });
+    deps.settings.replaceModelCache([
+      { modelId: "opencode-go/a", displayName: "Model A", tier: "free" as const },
+    ]);
+    // Active model is set to something not in the cache.
+    deps.settings.setActiveModel("opencode-go/removed-model");
+    const app = createApp(deps);
+    const res = await app.request("http://localhost/indstillinger");
+    const html = await res.text();
+
+    expect(html).toContain("ikke længere tilgængelig");
+    expect(html).toContain("opencode-go/removed-model");
+  });
 });
