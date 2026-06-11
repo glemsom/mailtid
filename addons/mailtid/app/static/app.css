@@ -16,6 +16,7 @@
   --card-border: #e2e2e2;
   --skeleton: #e8e8e8;
   --radius: 6px;
+  --radius-lg: 10px;
   --gap: 12px;
 }
 
@@ -26,16 +27,23 @@ body {
   color: var(--fg);
   background: var(--bg);
   line-height: 1.5;
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 24px;
   -webkit-font-smoothing: antialiased;
 }
 
-header h1 { margin: 0 0 4px 0; font-size: 28px; }
+header {
+  background: linear-gradient(135deg, #f5f3eb 0%, #edf2ec 100%);
+  margin: -24px -24px 28px -24px;
+  padding: 24px 24px 20px 24px;
+  border-bottom: 1px solid #e2e0d8;
+}
+header h1 { margin: 0 0 4px 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
 .nav { display: flex; gap: 12px; align-items: baseline; }
-.nav a { color: var(--accent); font-size: 14px; }
-.tagline { color: var(--muted); margin: 0 0 24px 0; }
+.nav a { color: var(--accent); font-size: 14px; padding: 4px 12px; border-radius: 999px; background: rgba(45,106,79,0.08); text-decoration: none; transition: background 0.15s; }
+.nav a:hover { background: rgba(45,106,79,0.15); }
+.tagline { color: var(--muted); margin: 0 0 28px 0; }
 
 /* ---- Banners ---- */
 .banner {
@@ -67,22 +75,24 @@ header h1 { margin: 0 0 4px 0; font-size: 28px; }
 }
 .banner-info a { color: #2d6a4f; }
 
-h2 { font-size: 18px; margin: 24px 0 8px 0; }
+h2 { font-size: 18px; font-weight: 600; margin: 40px 0 12px 0; }
 .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px 0; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .chip {
-  border: 1px solid var(--neutral-border);
-  background: var(--neutral);
+  border: 1px solid transparent;
+  background: #f0f0ec;
   color: var(--fg);
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
   user-select: none;
 }
+.chip:hover { background: #e6e6e0; }
+.chip:active { transform: scale(0.96); }
 .chip.neutral { /* default */ }
 .chip.include {
   background: var(--include-soft);
@@ -158,6 +168,11 @@ button.primary {
 }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
 
+#results {
+  border-top: 1px solid #e8e8e4;
+  padding-top: 28px;
+  margin-top: 16px;
+}
 .meals {
   display: grid;
   grid-template-columns: 1fr;
@@ -166,11 +181,17 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .meal {
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
+  border: none;
+  border-radius: var(--radius-lg);
   padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
-.meal h3 { margin: 0 0 6px 0; font-size: 17px; }
+.meal:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.meal h3 { margin: 0 0 6px 0; font-size: 18px; font-weight: 600; }
 .meal p { margin: 0 0 10px 0; color: var(--fg); }
 
 .meal-header {
@@ -223,10 +244,11 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .recipe {
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
+  border: none;
+  border-radius: var(--radius-lg);
   padding: 16px;
   margin-top: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
 .recipe h3 { margin: 0 0 12px 0; }
 .recipe h4 { margin: 12px 0 6px 0; font-size: 15px; color: var(--accent); }
@@ -287,6 +309,13 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 /* ---- Skeleton loading ---- */
 .meal.skeleton {
   padding: 14px 16px;
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  pointer-events: none;
+}
+.meal.skeleton:hover {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .skel-line {
   background: var(--skeleton);
@@ -327,10 +356,14 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 /* ---- Mobile-friendly ---- */
 @media (max-width: 480px) {
   body {
-    padding: 12px;
+    padding: 16px;
+  }
+  header {
+    margin: -16px -16px 22px -16px;
+    padding: 16px 16px 14px 16px;
   }
   header h1 {
-    font-size: 22px;
+    font-size: 24px;
   }
   .nav {
     flex-wrap: wrap;

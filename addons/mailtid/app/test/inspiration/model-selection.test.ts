@@ -15,7 +15,6 @@ const CANNED = JSON.stringify({
     { title: "T3", description: "D3", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
     { title: "T4", description: "D4", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
     { title: "T5", description: "D5", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
-    { title: "T6", description: "D6", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
   ],
 });
 

@@ -19,14 +19,13 @@ function makeCannedMeal(title: string, description: string) {
   };
 }
 
-const SIX_MEALS = JSON.stringify({
+const FIVE_MEALS = JSON.stringify({
   meals: [
     makeCannedMeal("Jordbærtærte", "Sprød tærte med friske jordbær."),
     makeCannedMeal("Aspargessuppe", "Cremet suppe med grønne asparges."),
     makeCannedMeal("Kartoffelsalat", "Klassisk kartoffelsalat med dild."),
     makeCannedMeal("Tomatsalat", "Frisk salat med modne tomater."),
     makeCannedMeal("Rabarberkompot", "Sød kompot af årets rabarber."),
-    makeCannedMeal("Blomkålssuppe", "Fløjlsblød suppe med blomkål."),
   ],
 });
 
@@ -46,8 +45,8 @@ async function readSSE(res: Response): Promise<{ event: string; data: string }[]
 }
 
 describe("POST /api/inspiration", () => {
-  test("returns 6 short-form Meal Inspirations as JSON", async () => {
-    const { deps } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+  test("returns 5 short-form Meal Inspirations as JSON", async () => {
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/api/inspiration", {
@@ -61,7 +60,7 @@ describe("POST /api/inspiration", () => {
     const body = JSON.parse(doneEvent!.data) as {
       meals: { title: string; description: string }[];
     };
-    expect(body.meals).toHaveLength(6);
+    expect(body.meals).toHaveLength(5);
     expect(body.meals[0]?.title).toBe("Jordbærtærte");
     expect(body.meals[0]?.description).toMatch(/jordbær/);
     expect(body.meals[0]?.ingredients).toHaveLength(2);
@@ -69,7 +68,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("hands the LLM a prompt that names the current month", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     await app.request("http://localhost/api/inspiration", { method: "POST" });
@@ -96,7 +95,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("applies the user's saved in-season filter to the LLM prompt", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     // Set a filter: include asparges, exclude champignon.
@@ -120,7 +119,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("applies the user's saved custom mandatory ingredients to the LLM prompt", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     await app.request("http://localhost/api/custom-ingredients", {
@@ -138,7 +137,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("includes the user profile in the prompt when set", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     deps.profile.save({
       dietaryPattern: "vegetarian",
       allergies: ["Mælk"],
@@ -156,7 +155,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("no profile section when profile is empty", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     await app.request("http://localhost/api/inspiration", { method: "POST" });
@@ -166,7 +165,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("emits thinking SSE events when the LLM produces reasoning tokens", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     llm.cannedReasoning = "Lad mig tænke...";
     const app = createApp(deps);
 
@@ -181,7 +180,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("does not emit thinking SSE events when the model produces no reasoning", async () => {
-    const { deps } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/api/inspiration", {
@@ -194,7 +193,7 @@ describe("POST /api/inspiration", () => {
   });
 
   test("status and done events still work alongside thinking events", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     llm.cannedReasoning = "ræsonnerer...";
     const app = createApp(deps);
 

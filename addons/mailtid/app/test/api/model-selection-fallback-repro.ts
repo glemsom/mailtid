@@ -6,7 +6,7 @@
  *  2. Browser auto-selects the first <option> (no "selected" attribute).
  *  3. User sees a model in the dropdown — thinks it's selected.
  *  4. User never interacts with the dropdown → "change" event NEVER fires.
- *  5. User clicks "Vis 6 nye" on home page.
+ *  5. User clicks "Vis 5 nye" on home page.
  *  6. getActiveModel() returns null → default model is used.
  */
 
@@ -32,7 +32,6 @@ const CANNED = JSON.stringify({
     { title: "T3", description: "D3", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
     { title: "T4", description: "D4", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
     { title: "T5", description: "D5", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
-    { title: "T6", description: "D6", ingredients: [{ name: "X", amount: "1", unit: "stk" }], steps: ["Gør klar."], time_minutes: 10 },
   ],
 });
 
@@ -56,7 +55,7 @@ settings.replaceModelCache([
   { modelId: "opencode-go/deepseek-v4", displayName: "DeepSeek V4", tier: "free" as const },
 ]);
 
-// --- SCENARIO 1: User opens settings, sees first model shown, clicks home & "Vis 6 nye" ---
+// --- SCENARIO 1: User opens settings, sees first model shown, clicks home & "Vis 5 nye" ---
 
 console.log("\n=== SCENARIO 1: No active model set, browser auto-selects first option ===");
 console.log("Active model before:", settings.getActiveModel());
@@ -76,7 +75,7 @@ const app = createApp({
   monthProvider: () => 6,
 });
 
-// User clicks "Vis 6 nye" — what model is actually used?
+// User clicks "Vis 5 nye" — what model is actually used?
 await app.request("/api/inspiration", { method: "POST" });
 console.log("Model passed to LLM:", llm.models[0] ?? "<undefined → falls back to default>");
 
@@ -84,7 +83,7 @@ console.log("Model passed to LLM:", llm.models[0] ?? "<undefined → falls back 
 llm.models.length = 0;
 llm.prompts.length = 0;
 
-console.log("\n=== SCENARIO 2: User selects model via PUT /api/settings, then clicks Vis 6 nye ===");
+console.log("\n=== SCENARIO 2: User selects model via PUT /api/settings, then clicks Vis 5 nye ===");
 const putRes = await app.request("/api/settings", {
   method: "PUT",
   headers: { "content-type": "application/json" },

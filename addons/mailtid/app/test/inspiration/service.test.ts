@@ -60,17 +60,16 @@ const CANNED = JSON.stringify({
     makeCannedMeal("Kartoffelsalat", "Klassisk kartoffelsalat med dild."),
     makeCannedMeal("Tomatsalat", "Frisk salat med modne tomater."),
     makeCannedMeal("Rabarberkompot", "Sød kompot af årets rabarber."),
-    makeCannedMeal("Blomkålssuppe", "Fløjlsblød suppe med blomkål."),
   ],
 });
 
 describe("InspirationService.shortForm", () => {
-  test("returns 6 short-form Meal Inspirations from the LLM response", async () => {
+  test("returns 5 short-form Meal Inspirations from the LLM response", async () => {
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
 
     const meals = await service.shortForm();
 
-    expect(meals).toHaveLength(6);
+    expect(meals).toHaveLength(5);
     expect(meals[0]?.title).toBe("Jordbærtærte");
     expect(meals[0]?.description).toMatch(/jordbær/);
     expect(meals[0]?.ingredients).toHaveLength(2);
@@ -157,7 +156,7 @@ describe("InspirationService.shortForm", () => {
     llm.cannedReasoning = "some reasoning";
 
     const meals = await service.shortForm();
-    expect(meals).toHaveLength(6);
+    expect(meals).toHaveLength(5);
   });
 
   test("onStatus still works when passed via opts object", async () => {
@@ -287,24 +286,24 @@ describe("shortForm status messages", () => {
   test("status callback is optional — no crash when omitted", async () => {
     const { service } = makeService({ cannedResponse: CANNED, month: 6 });
     const meals = await service.shortForm();
-    expect(meals).toHaveLength(6);
+    expect(meals).toHaveLength(5);
   });
 });
 
 describe("parseShortFormResponse", () => {
   test("parses a well-formed JSON object", () => {
     const parsed = parseShortFormResponse(CANNED);
-    expect(parsed).toHaveLength(6);
+    expect(parsed).toHaveLength(5);
   });
 
   test("strips ```json fences if the model added them", () => {
     const wrapped = "```json\n" + CANNED + "\n```";
-    expect(parseShortFormResponse(wrapped)).toHaveLength(6);
+    expect(parseShortFormResponse(wrapped)).toHaveLength(5);
   });
 
   test("ignores prose before/after the JSON object", () => {
     const wrapped = "Her er forslagene:\n" + CANNED + "\nGod fornøjelse!";
-    expect(parseShortFormResponse(wrapped)).toHaveLength(6);
+    expect(parseShortFormResponse(wrapped)).toHaveLength(5);
   });
 
   test("throws on a missing meals array", () => {

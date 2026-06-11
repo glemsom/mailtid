@@ -12,14 +12,13 @@ function makeCannedMeal(title: string, description: string) {
   };
 }
 
-const SIX_MEALS = JSON.stringify({
+const FIVE_MEALS = JSON.stringify({
   meals: [
     makeCannedMeal("Test ret 1", "En beskrivelse."),
     makeCannedMeal("Test ret 2", "En anden beskrivelse."),
     makeCannedMeal("Test ret 3", "Tredje beskrivelse."),
     makeCannedMeal("Test ret 4", "Fjerde beskrivelse."),
     makeCannedMeal("Test ret 5", "Femte beskrivelse."),
-    makeCannedMeal("Test ret 6", "Sjette beskrivelse."),
   ],
 });
 
@@ -40,7 +39,7 @@ async function readSSE(res: Response): Promise<{ event: string; data: string }[]
 
 describe("Error handling: missing API key", () => {
   test("GET / returns home page with missing-key message when api key is empty", async () => {
-    const { deps } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6, hasApiKey: false });
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6, hasApiKey: false });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/");
@@ -51,7 +50,7 @@ describe("Error handling: missing API key", () => {
   });
 
   test("GET / does not show missing-key message when api key is set", async () => {
-    const { deps } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6, hasApiKey: true });
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6, hasApiKey: true });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/");
@@ -61,7 +60,7 @@ describe("Error handling: missing API key", () => {
   });
 
   test("POST /api/inspiration returns 503 when API key is missing", async () => {
-    const { deps } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6, hasApiKey: false });
+    const { deps } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6, hasApiKey: false });
     const app = createApp(deps);
 
     const res = await app.request("http://localhost/api/inspiration", {
@@ -75,7 +74,7 @@ describe("Error handling: missing API key", () => {
 
 describe("Error handling: LLM throws", () => {
   test("POST /api/inspiration returns 502 when the LLM call throws a network error", async () => {
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     llm.shouldThrow = new Error("Connection refused");
     const app = createApp(deps);
 
@@ -122,7 +121,7 @@ describe("Error handling: LLM throws", () => {
     // The HTTP response stays user-friendly (Danish error, 502);
     // the operator looking at `docker run -it` output gets the
     // full error name, message, and stack on stderr.
-    const { deps, llm } = makeTestDeps({ cannedResponse: SIX_MEALS, month: 6 });
+    const { deps, llm } = makeTestDeps({ cannedResponse: FIVE_MEALS, month: 6 });
     llm.shouldThrow = new Error("Connection refused");
     const app = createApp(deps);
 

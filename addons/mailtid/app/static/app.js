@@ -9,7 +9,7 @@
  *  2. Submit the custom-mandatory form to /api/custom-ingredients
  *     and re-render the custom-chip list when the user clicks
  *     "Fjern" (×).
- *  3. Render the 6 short-form Meal Inspirations with a loading
+ *  3. Render the 5 short-form Meal Inspirations with a loading
  *     skeleton while fetching, and a retry button on error.
  *
  * The page itself is server-rendered, so a no-JS user can still
@@ -126,7 +126,7 @@ function renderMeals(meals) {
   if (!container) return;
   if (meals.length === 0) {
     container.innerHTML =
-      '<p class="empty">Ingen forslag endnu — tryk "Vis 6 nye".</p>';
+      '<p class="empty">Ingen forslag endnu — tryk "Vis 5 nye".</p>';
     return;
   }
 

@@ -40,10 +40,10 @@ describe("GET / (home page)", () => {
     expect(html.toLowerCase()).toContain("name=\"name\"");
   });
 
-  test("renders a 'Vis 6 nye' button that re-runs the inspiration call", async () => {
+  test("renders a 'Vis 5 nye' button that re-runs the inspiration call", async () => {
     const html = await homeHtml();
 
-    expect(html).toContain("Vis 6 nye");
+    expect(html).toContain("Vis 5 nye");
     // The click handler lives in /static/app.js, which the page loads.
     expect(html).toContain("/static/app.js");
   });

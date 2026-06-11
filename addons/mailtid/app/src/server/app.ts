@@ -66,7 +66,7 @@ export interface AppDeps {
    * Returns a status message string.
    */
   refreshModelCache?: () => Promise<string>;
-  /** Business logic for the 6-meal home-screen call. */
+  /** Business logic for the 5-meal home-screen call. */
   inspiration: InspirationService;
   /** Business logic for the full-recipe card-tap call. */
   recipe: RecipeService;
@@ -183,7 +183,7 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   /**
-   * `POST /api/inspiration` — return 6 short-form Meal Inspirations
+   * `POST /api/inspiration` — return 5 short-form Meal Inspirations
    * for the current month, constrained to the in-season Danish
    * ingredient list. The LLM does the heavy lifting; the handler
    * is a thin wrapper that maps parse / network errors to a 502.

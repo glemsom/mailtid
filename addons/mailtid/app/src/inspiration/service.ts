@@ -45,7 +45,7 @@ export interface MealInspiration {
 }
 
 /**
- * The shape the LLM is asked to produce for the short-form 6-meal
+ * The shape the LLM is asked to produce for the short-form 5-meal
  * call. The service parses the LLM's raw text into a
  * `MealInspiration[]`.
  */
@@ -176,7 +176,7 @@ export interface InspirationServiceFilterDeps {
 }
 
 /**
- * Business logic for the home-screen 6-meal call. Owns the
+ * Business logic for the home-screen 5-meal call. Owns the
  * "look up in-season, build prompt, call LLM, parse response"
  * flow; the HTTP layer is a thin wrapper.
  *
@@ -199,7 +199,7 @@ export class InspirationService {
   ) {}
 
   /**
-   * Produce 6 short-form Meal Inspirations for the current month,
+   * Produce 5 short-form Meal Inspirations for the current month,
    * constrained to the in-season Danish ingredient list and the
    * user's current filter selection.
    *

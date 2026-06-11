@@ -4,8 +4,9 @@ import type { UserProfile } from "../db/profile.js";
 /**
  * The number of short-form Meal Inspirations a single home-screen
  * request returns. Settled product constant — see CONTEXT.md.
+ * Changed from 6 to 5 per product decision.
  */
-export const SHORT_FORM_MEAL_COUNT = 6;
+export const SHORT_FORM_MEAL_COUNT = 5;
 
 /**
  * The name of the current month in Danish (1 = "Januar", ..., 12 =
@@ -47,7 +48,7 @@ export interface FilteredIngredient {
 
 /**
  * The three independent filter lists handed to the LLM for the
- * short-form 6-meal call. Semantics are set by ADR-0001:
+ * short-form 5-meal call. Semantics are set by ADR-0001:
  *
  * - `inSeasonIncludes` — OR. Every meal must contain at least one
  *   of these in-season ingredients.
@@ -73,14 +74,14 @@ export const EMPTY_SHORT_FORM_FILTER: ShortFormFilter = {
 };
 
 /**
- * Build the prompt for the short-form 6-meal call. Pure function —
+ * Build the prompt for the short-form 5-meal call. Pure function —
  * the same inputs always produce the same output, which is what
  * makes the prompt regressions testable.
  *
  * Sections of the prompt (kept in this order, each labelled so a
  * prompt-section test can assert on its presence):
  *
- *   1. Role / task — produce 6 short-form Meal Inspirations in Danish.
+ *   1. Role / task — produce 5 short-form Meal Inspirations in Danish.
  *   2. Month — current Danish month name and 1-12 number.
  *   3. In-season ingredients — the comma-separated list of ingredients
  *      in season this month. The LLM is told to feature these as central
