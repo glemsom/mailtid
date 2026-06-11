@@ -138,16 +138,30 @@ export class RecipeService {
    * Produce a {@link FullRecipe} for the given short-form Meal
    * Inspiration, constrained to the in-season Danish ingredient
    * list for the current month.
+   *
+   * @param opts.onStatus Called with build-phase status messages.
+   * @param opts.onReasoning Called with raw reasoning token deltas
+   *   as they arrive from the LLM (for reasoning-capable models).
    */
-  async fullRecipe(meal: MealInspiration): Promise<FullRecipe> {
+  async fullRecipe(
+    meal: MealInspiration,
+    opts?: {
+      onStatus?: (status: string) => void;
+      onReasoning?: (token: string) => void;
+    },
+  ): Promise<FullRecipe> {
     const month = this.monthProvider();
+    opts?.onStatus?.("Henter ingredienser...");
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const prompt = buildRecipePrompt(meal, inSeason);
     const activeModel = this.resolveActiveModel();
-    const raw = await this.llm.chat(
+    opts?.onStatus?.("AI tænker over opskriften...");
+    const raw = await this.llm.stream(
       prompt,
-      activeModel ? { model: activeModel } : undefined,
+      activeModel
+        ? { model: activeModel, onReasoning: opts?.onReasoning }
+        : { onReasoning: opts?.onReasoning },
     );
     return parseRecipeResponse(raw);
   }

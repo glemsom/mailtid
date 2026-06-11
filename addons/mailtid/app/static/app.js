@@ -199,20 +199,12 @@ function renderMeals(meals) {
       const description = btn.getAttribute("data-recipe-desc") || "";
       btn.disabled = true;
       btn.textContent = "Henter opskrift...";
+      clearThinking();
       try {
-        const res = await fetch("/api/inspiration/recipe", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ title, description }),
-        });
-        if (res.ok) {
-          const recipe = await res.json();
-          showRecipe(recipe);
-        } else {
-          setStatus("Kunne ikke hente opskrift.");
-        }
+        const recipe = await streamRecipe(title, description);
+        showRecipe(recipe);
       } catch (err) {
-        setStatus("Kunne ikke hente opskrift.");
+        setStatus(err.message || "Kunne ikke hente opskrift.");
       } finally {
         btn.disabled = false;
         btn.textContent = "Se opskrift";
@@ -399,6 +391,59 @@ async function streamInspiration() {
     }
   }
   
+  throw new Error("Uventet afslutning på stream");
+}
+
+/**
+ * Fetch a full recipe using Server-Sent Events (SSE), streaming
+ * reasoning tokens from the LLM into the #thinking box.
+ */
+async function streamRecipe(title, description) {
+  const res = await fetch("/api/inspiration/recipe", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title, description }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Kunne ikke hente opskrift");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "message";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = line.slice(6);
+        if (currentEvent === "done") {
+          return JSON.parse(data);
+        } else if (currentEvent === "error") {
+          clearThinking();
+          const errData = JSON.parse(data);
+          throw new Error(errData.error || "Fejl");
+        } else if (currentEvent === "status") {
+          setStatus(data);
+        } else if (currentEvent === "thinking") {
+          showThinking(data);
+        }
+      } else if (line === "") {
+        currentEvent = "message";
+      }
+    }
+  }
+
   throw new Error("Uventet afslutning på stream");
 }
 

@@ -119,6 +119,31 @@ describe("RecipeService.fullRecipe", () => {
     expect(prompt).toContain("Asparges");
   });
 
+  test("uses stream() instead of chat() to call the LLM", async () => {
+    // fullRecipe should stream so the user sees the AI's thinking.
+    // We verify that stream() was called (not chat()) by checking
+    // that the prompt was recorded — both methods do that, but
+    // stream() also fires onReasoning when cannedReasoning is set.
+    const { service, llm } = makeService({
+      cannedResponse: WIRE_JSON,
+      month: 6,
+    });
+    llm.cannedReasoning = "ræsonnerer...";
+    const statuses: string[] = [];
+    const reasoning: string[] = [];
+
+    await service.fullRecipe(MEAL, {
+      onStatus: (s) => statuses.push(s),
+      onReasoning: (t) => reasoning.push(t),
+    });
+
+    expect(llm.prompts).toHaveLength(1);
+    // The mock's stream() fires cannedReasoning to onReasoning.
+    expect(reasoning).toEqual(["ræsonnerer..."]);
+    // Status callbacks fired.
+    expect(statuses.length).toBeGreaterThan(0);
+  });
+
   test("passes the user's active model from SettingsRepository to the LLM", async () => {
     // Regression: fullRecipe used to silently fall back to
     // RealLLMClient's hardcoded default (opencode-go/glm-5.1),

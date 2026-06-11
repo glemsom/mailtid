@@ -79,7 +79,7 @@ describe("Error handling: LLM throws", () => {
     expect(body.error).toContain("Kunne ikke få forslag");
   });
 
-  test("POST /api/inspiration/recipe returns 502 when the LLM call throws", async () => {
+  test("POST /api/inspiration/recipe returns error SSE event when the LLM call throws", async () => {
     const CANNED = JSON.stringify({
       title: "Test",
       description: "Test",
@@ -99,9 +99,12 @@ describe("Error handling: LLM throws", () => {
         description: "Test",
       }),
     });
-    expect(res.status).toBe(502);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain("Kunne ikke få forslag");
+    expect(res.status).toBe(200); // SSE always returns 200
+    const events = await readSSE(res);
+    const errorEvent = events.find((e) => e.event === "error");
+    expect(errorEvent).toBeDefined();
+    const body = JSON.parse(errorEvent!.data) as { error: string };
+    expect(body.error).toContain("Kunne ikke hente opskrift");
   });
 
   test("LLM throw is logged at ERROR level with full stack", async () => {

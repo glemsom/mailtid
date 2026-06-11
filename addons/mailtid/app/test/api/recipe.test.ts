@@ -17,8 +17,23 @@ const CANNED_RECIPE = JSON.stringify({
   time_minutes: 30,
 });
 
+async function readSSE(res: Response): Promise<{ event: string; data: string }[]> {
+  const text = await res.text();
+  const events: { event: string; data: string }[] = [];
+  let currentEvent = "message";
+  for (const line of text.split("\n")) {
+    if (line.startsWith("event: ")) {
+      currentEvent = line.slice(7).trim();
+    } else if (line.startsWith("data: ")) {
+      events.push({ event: currentEvent, data: line.slice(6) });
+      currentEvent = "message";
+    }
+  }
+  return events;
+}
+
 describe("POST /api/inspiration/recipe", () => {
-  test("returns a full recipe for a valid short-form meal", async () => {
+  test("streams a full recipe via SSE for a valid short-form meal", async () => {
     const { deps } = makeTestDeps({
       cannedResponse: CANNED_RECIPE,
       month: 6,
@@ -35,7 +50,10 @@ describe("POST /api/inspiration/recipe", () => {
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    const events = await readSSE(res);
+    const doneEvent = events.find((e) => e.event === "done");
+    expect(doneEvent).toBeDefined();
+    const body = JSON.parse(doneEvent!.data) as {
       title: string;
       description: string;
       ingredients: { name: string; amount: string; unit: string }[];
@@ -81,7 +99,7 @@ describe("POST /api/inspiration/recipe", () => {
     expect(res.status).toBe(400);
   });
 
-  test("returns 502 when the LLM response is malformed", async () => {
+  test("emits error SSE event when the LLM response is malformed", async () => {
     const { deps } = makeTestDeps({
       cannedResponse: "not json at all",
       month: 6,
@@ -97,7 +115,12 @@ describe("POST /api/inspiration/recipe", () => {
       }),
     });
 
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(200); // SSE always returns 200
+    const events = await readSSE(res);
+    const errorEvent = events.find((e) => e.event === "error");
+    expect(errorEvent).toBeDefined();
+    const body = JSON.parse(errorEvent!.data) as { error: string };
+    expect(body.error).toContain("Kunne ikke hente opskrift");
   });
 
   test("uses the user's saved active model when calling the LLM", async () => {
@@ -123,5 +146,51 @@ describe("POST /api/inspiration/recipe", () => {
 
     expect(res.status).toBe(200);
     expect(llm.models).toEqual(["opencode-go/deepseek-v4-flash"]);
+  });
+
+  test("emits status SSE events", async () => {
+    const { deps } = makeTestDeps({
+      cannedResponse: CANNED_RECIPE,
+      month: 6,
+    });
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration/recipe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Aspargessuppe",
+        description: "Cremet suppe med grønne asparges.",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const events = await readSSE(res);
+    const statusEvents = events.filter((e) => e.event === "status");
+    expect(statusEvents.length).toBeGreaterThan(0);
+  });
+
+  test("emits thinking SSE events when the LLM produces reasoning tokens", async () => {
+    const { deps, llm } = makeTestDeps({
+      cannedResponse: CANNED_RECIPE,
+      month: 6,
+    });
+    llm.cannedReasoning = "Lad mig tænke over opskriften...";
+    const app = createApp(deps);
+
+    const res = await app.request("http://localhost/api/inspiration/recipe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Aspargessuppe",
+        description: "Cremet suppe med grønne asparges.",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const events = await readSSE(res);
+    const thinkingEvent = events.find((e) => e.event === "thinking");
+    expect(thinkingEvent).toBeDefined();
+    expect(thinkingEvent!.data).toBe("Lad mig tænke over opskriften...");
   });
 });

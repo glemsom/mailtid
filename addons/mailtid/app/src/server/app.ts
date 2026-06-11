@@ -223,8 +223,8 @@ export function createApp(deps: AppDeps): Hono {
    * `POST /api/inspiration/recipe` — expand a single short-form
    * Meal Inspiration (the one the user just tapped) into a full
    * Danish recipe via a second, targeted LLM call. Body must be
-   * JSON with `title` and `description`. Returns the full recipe
-   * as JSON.
+   * JSON with `title` and `description`. Streams status updates
+   * and reasoning via SSE so the user gets real-time feedback.
    */
   app.post("/api/inspiration/recipe", async (c) => {
     let body: unknown;
@@ -248,16 +248,35 @@ export function createApp(deps: AppDeps): Hono {
         400,
       );
     }
-    try {
-      const recipe = await deps.recipe.fullRecipe({
-        title: meal.title,
-        description: meal.description,
-      });
-      return c.json(recipe);
-    } catch (err) {
-      logError("recipe", err);
-      return c.json({ error: "Kunne ikke få forslag — prøv igen" }, 502);
-    }
+
+    const title = meal.title as string;
+    const description = meal.description as string;
+
+    return streamSSE(c, async (stream) => {
+      try {
+        const recipe = await deps.recipe.fullRecipe(
+          {
+            title,
+            description,
+          },
+          {
+            onStatus: (status) => {
+              stream.writeSSE({ data: status, event: "status" }).catch(() => {});
+            },
+            onReasoning: (token) => {
+              stream.writeSSE({ data: token, event: "thinking" }).catch(() => {});
+            },
+          },
+        );
+        await stream.writeSSE({ data: JSON.stringify(recipe), event: "done" });
+      } catch (err) {
+        logError("recipe", err);
+        await stream.writeSSE({
+          data: JSON.stringify({ error: "Kunne ikke hente opskrift — prøv igen" }),
+          event: "error",
+        });
+      }
+    });
   });
 
   /**
