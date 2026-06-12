@@ -15,6 +15,7 @@ import { CachedMealsRepository } from "../db/cached-meals.js";
 import { InspirationService } from "../inspiration/service.js";
 import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
+import { LLMOrchestrator } from "../llm/orchestrator.js";
 import { refreshModelCache } from "../llm/models.js";
 import type { LLMClient } from "../llm/client.js";
 import type { AppDeps } from "./app.js";
@@ -78,11 +79,12 @@ export function buildAppDeps(
     new RealLLMClient(() => config.opencodeApiKey || settings.getApiKey());
   const monthProvider =
     options.monthProvider ?? (() => new Date().getMonth() + 1);
-  const inspiration = new InspirationService(seasonality, llm, monthProvider, {
+  const orchestrator = new LLMOrchestrator(llm, settings);
+  const inspiration = new InspirationService(seasonality, orchestrator, monthProvider, {
     filterState,
     customIngredients,
     pantry,
-  }, profile, settings, cookedHistory);
+  }, profile, cookedHistory);
   const recipe = new RecipeService(seasonality, llm, monthProvider, settings);
 
   return {

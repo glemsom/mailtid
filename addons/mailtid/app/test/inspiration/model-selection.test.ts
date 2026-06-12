@@ -6,6 +6,7 @@ import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { SettingsRepository } from "../../src/db/settings.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 
 const CANNED = JSON.stringify({
@@ -31,9 +32,10 @@ describe("InspirationService model selection", () => {
     // User selects a model on the settings page
     settings.setActiveModel("opencode-go/custom-model");
 
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();
@@ -53,9 +55,10 @@ describe("InspirationService model selection", () => {
     const llm = new MockLLMClient(CANNED);
 
     // No active model set — getActiveModel() returns null
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();
@@ -74,9 +77,10 @@ describe("InspirationService model selection", () => {
     const cookedHistory = new CookedHistoryRepository(db);
     const llm = new MockLLMClient(CANNED);
 
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     // First call with no model set
@@ -102,9 +106,10 @@ describe("InspirationService model selection", () => {
 
     settings.setActiveModel("opencode-go/test-model");
 
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();
@@ -127,9 +132,10 @@ describe("InspirationService model selection", () => {
       { modelId: "opencode-go/paid-model", displayName: "Paid", tier: "paid" },
     ]);
 
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();
@@ -154,9 +160,10 @@ describe("InspirationService model selection", () => {
       { modelId: "opencode-go/paid-2", displayName: "Paid 2", tier: "paid" },
     ]);
 
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, settings, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();
@@ -174,10 +181,11 @@ describe("InspirationService model selection", () => {
     const cookedHistory = new CookedHistoryRepository(db);
     const llm = new MockLLMClient(CANNED);
 
-    // No settingsRepo passed — like the existing tests
+    // No settingsRepo passed — orchestrator created without settings
+    const orchestrator = new LLMOrchestrator(llm);
     const service = new InspirationService(
-      seasonality, llm, () => 6,
-      undefined, undefined, undefined, cookedHistory,
+      seasonality, orchestrator, () => 6,
+      undefined, undefined, cookedHistory,
     );
 
     await service.shortForm();

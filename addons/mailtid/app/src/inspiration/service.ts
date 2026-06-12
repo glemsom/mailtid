@@ -1,5 +1,5 @@
 import type { SeasonalityIngredient } from "../db/seasonality.js";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMOrchestrator } from "../llm/orchestrator.js";
 import {
   buildShortFormPrompt,
   type FilteredIngredient,
@@ -11,7 +11,6 @@ import type { FilterStateRepository } from "../db/filter-state.js";
 import type { CustomIngredientsRepository } from "../db/custom-ingredients.js";
 import type { PantryRepository } from "../db/pantry.js";
 import type { ProfileRepository } from "../db/profile.js";
-import type { SettingsRepository } from "../db/settings.js";
 import type { CookedHistoryRepository } from "../db/cooked-history.js";
 
 /** Danish labels for dietary patterns shown in status messages. */
@@ -198,12 +197,11 @@ export interface InspirationServiceFilterDeps {
 export class InspirationService {
   constructor(
     private readonly seasonality: SeasonalityRepository,
-    private readonly llm: LLMClient,
+    private readonly orchestrator: LLMOrchestrator,
     /** Provides the "current" month (1-12) for the request. */
     private readonly monthProvider: () => number,
     private readonly filterDeps?: InspirationServiceFilterDeps,
     private readonly profileRepo?: ProfileRepository,
-    private readonly settingsRepo?: SettingsRepository,
     private readonly cookedHistoryRepo?: CookedHistoryRepository,
   ) {}
 
@@ -241,38 +239,11 @@ export class InspirationService {
     const prompt = buildShortFormPrompt(month, inSeason, filter, profile, cookedTitles);
     opts?.onStatus?.(buildStatusMessage(inSeason, filter, profile));
 
-    // Phase 3: call the LLM via streaming.
+    // Phase 3: call the LLM via streaming through the orchestrator.
     opts?.onStatus?.("AI tænker...");
-    const activeModel = this.resolveActiveModel();
-    const raw = await this.llm.stream(prompt, {
-      model: activeModel ?? undefined,
+    return this.orchestrator.call(prompt, parseShortFormResponse, {
       onReasoning: opts?.onReasoning,
     });
-    return parseShortFormResponse(raw);
-  }
-
-  /**
-   * Resolve the active model for an LLM call. Ordered fallback:
-   * 1. The user's explicitly saved model (from settings page).
-   * 2. The first free model in the cached model list.
-   * 3. Any cached model (if no free models exist).
-   * 4. `undefined` — lets the LLMClient pick its own hardcoded default.
-   *
-   * The fallback chain ensures that after a model-cache refresh,
-   * even if the user's previously-saved model was removed from the
-   * API, a valid cached model is always attempted before the
-   * hardcoded default — which itself may have been removed.
-   */
-  private resolveActiveModel(): string | undefined {
-    // 1. User's explicit choice.
-    const active = this.settingsRepo?.getActiveModel();
-    if (active) return active;
-
-    // 2. Fall back to first free cached model.
-    const allModels = this.settingsRepo?.listModels();
-    if (!allModels || allModels.length === 0) return undefined;
-    const freeModel = allModels.find((m) => m.tier === "free");
-    return freeModel?.modelId ?? allModels[0]?.modelId;
   }
 
   /**

@@ -11,6 +11,7 @@ import { FavouritesRepository } from "../../src/db/favourites.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 import { CachedMealsRepository } from "../../src/db/cached-meals.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
 import type { AppDeps } from "../../src/server/app.js";
@@ -56,13 +57,13 @@ export function makeTestDeps(opts: {
   const cookedHistory = new CookedHistoryRepository(db);
   const cachedMeals = new CachedMealsRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
+  const orchestrator = new LLMOrchestrator(llm, settings);
   const inspiration = new InspirationService(
     seasonality,
-    llm,
+    orchestrator,
     () => opts.month,
     { filterState, customIngredients, pantry },
     profile,
-    settings,
     cookedHistory,
   );
   const recipe = new RecipeService(seasonality, llm, () => opts.month, settings);

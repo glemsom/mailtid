@@ -22,6 +22,7 @@ import { FavouritesRepository } from "./src/db/favourites.js";
 import { CookedHistoryRepository } from "./src/db/cooked-history.js";
 import { CachedMealsRepository } from "./src/db/cached-meals.js";
 import { MockLLMClient } from "./src/llm/mock.js";
+import { LLMOrchestrator } from "./src/llm/orchestrator.js";
 import { InspirationService } from "./src/inspiration/service.js";
 import { RecipeService } from "./src/inspiration/recipe-service.js";
 import { createApp } from "./src/server/app.js";
@@ -62,10 +63,11 @@ settings.replaceModelCache([
 console.log("\n=== SCENARIO 1: No active model set, browser auto-selects first option ===");
 console.log("Active model before:", settings.getActiveModel());
 
+const orchestrator = new LLMOrchestrator(llm, settings);
 const inspiration = new InspirationService(
-  seasonality, llm, () => 6,
+  seasonality, orchestrator, () => 6,
   { filterState, customIngredients },
-  profile, settings, cookedHistory,
+  profile, cookedHistory,
 );
 const recipe = new RecipeService(seasonality, llm, () => 6, settings);
 

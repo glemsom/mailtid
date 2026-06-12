@@ -8,6 +8,7 @@ import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js"
 import { PantryRepository } from "../../src/db/pantry.js";
 import { ProfileRepository } from "../../src/db/profile.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import {
   InspirationService,
   parseShortFormResponse,
@@ -25,11 +26,11 @@ function makeService(opts: {
   const repo = new SeasonalityRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
   const cookedHistory = new CookedHistoryRepository(db);
+  const orchestrator = new LLMOrchestrator(llm);
   const service = new InspirationService(
     repo,
-    llm,
+    orchestrator,
     () => opts.month,
-    undefined,
     undefined,
     undefined,
     cookedHistory,
@@ -224,13 +225,13 @@ describe("shortForm status messages", () => {
     customIngredients.add("ris");
     const pantry = new PantryRepository(db);
 
+    const orchestrator2 = new LLMOrchestrator(llm);
     const service = new InspirationService(
       repo,
-      llm,
+      orchestrator2,
       () => 6,
       { filterState, customIngredients, pantry },
       profile,
-      undefined,
       cookedHistory,
     );
 
@@ -268,13 +269,13 @@ describe("shortForm status messages", () => {
       dislikes: "",
     });
 
+    const orchestrator3 = new LLMOrchestrator(llm);
     const service = new InspirationService(
       repo,
-      llm,
+      orchestrator3,
       () => 6,
       undefined,
       profile,
-      undefined,
       cookedHistory,
     );
 

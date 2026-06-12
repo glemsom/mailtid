@@ -7,6 +7,7 @@ import { FilterStateRepository } from "../../src/db/filter-state.js";
 import { CustomIngredientsRepository } from "../../src/db/custom-ingredients.js";
 import { PantryRepository } from "../../src/db/pantry.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 
 const CANNED = JSON.stringify({ meals: [] });
@@ -22,9 +23,10 @@ function makeService(opts: {
   const customIngredients = new CustomIngredientsRepository(db);
   const pantry = new PantryRepository(db);
   const llm = new MockLLMClient(CANNED);
+  const orchestrator = new LLMOrchestrator(llm);
   const service = new InspirationService(
     seasonality,
-    llm,
+    orchestrator,
     () => opts.month,
     { filterState, customIngredients, pantry },
   );

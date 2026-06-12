@@ -12,6 +12,7 @@ import { FavouritesRepository } from "../../src/db/favourites.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
 import { CachedMealsRepository } from "../../src/db/cached-meals.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
 import { createApp } from "../../src/server/app.js";
@@ -42,10 +43,11 @@ describe("Model selection end-to-end", () => {
     const cookedHistory = new CookedHistoryRepository(db);
     const cachedMeals = new CachedMealsRepository(db);
     const llm = new MockLLMClient(CANNED);
+    const orchestrator = new LLMOrchestrator(llm, settings);
     const inspiration = new InspirationService(
-      seasonality, llm, () => 6,
+      seasonality, orchestrator, () => 6,
       { filterState, customIngredients, pantry },
-      profile, settings, cookedHistory,
+      profile, cookedHistory,
     );
     const recipe = new RecipeService(seasonality, llm, () => 6, settings);
 
@@ -110,8 +112,8 @@ describe("Model selection end-to-end", () => {
       hasApiKey: () => true,
       inspiration: new InspirationService(
         new SeasonalityRepository(db),
-        new MockLLMClient(CANNED), () => 6,
-        undefined, undefined, settings, new CookedHistoryRepository(db),
+        new LLMOrchestrator(new MockLLMClient(CANNED), settings), () => 6,
+        undefined, undefined, new CookedHistoryRepository(db),
       ),
       recipe: new RecipeService(
         new SeasonalityRepository(db),
