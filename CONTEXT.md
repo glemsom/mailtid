@@ -79,16 +79,8 @@ runtime admin UI**, with **DB-wins** semantics:
 
 ## Open / unresolved
 
-These are terms the project has not yet committed to. Do not encode them
-in code until they are resolved here.
+These are terms the project has not yet committed to.
 
-- **NodeJS server framework** (Express / Fastify / Hono / etc.) —
-  implementation detail, not a glossary term.
-- **Frontend rendering model** (server-rendered HTML, SPA, HTMX, etc.)
-  — implementation detail.
-- **TypeScript or plain JavaScript** — implementation detail.
-- **The curated in-season dataset** — content, not glossary. Lives in
-  the database seed, not in `CONTEXT.md`.
 - **Model list refresh cadence** (on startup only, on a timer, on
   demand only) — minor ops decision.
 - **First-run experience** (block the home screen until the profile
@@ -123,7 +115,7 @@ under `https://opencode.ai/zen/go/v1/`.
 
 ### Filter sources
 Mailtid's "must include" / "must exclude" controls accept ingredients
-from two sources:
+from three sources:
 
 1. **In-season chips** — ingredients shown because they are in season
    in Denmark this month (the same list that drives the prompt). User
@@ -133,61 +125,66 @@ from two sources:
    themselves (e.g. "ris" because of leftover rice). These are *always*
    positive. They are not constrained by the seasonality calendar —
    the "leftover rice in February" use case is the whole point.
+3. **Pantry (basisvarer)** — ingredients the user always has on hand.
+   Set once on the settings page; always AND'ed into every request.
 
 A meal suggestion must contain every "must include" ingredient (from
-either source) and must not contain any "must exclude" ingredient.
+any source) and must not contain any "must exclude" ingredient.
 The semantics across multiple in-season includes (AND vs OR) is **OR**
 (see "Filter semantics" below).
 
 ### Default filter state
-On first load, no chip is selected. The user opts in to filtering.
-A "Vis 5 nye" button explicitly re-runs the request. No
-auto-rotation.
+Filter state is persisted in SQLite — the user's chip selections
+survive page reloads and restarts. On the very first visit (before
+the user has touched a chip), all chips start neutral. A "Vis 5 nye"
+button explicitly re-runs the request. No auto-rotation.
 
 ### User profile
 A persistent, server-side set of preferences stored in SQLite. Captured
 once (with a settings page to edit). The LLM is always told the current
 profile, on every request.
 
-For v1, the profile contains exactly three fields:
+The profile contains three fields:
 
 - **dietary pattern** — single choice (omnivore / pescatarian /
-  vegetarian / vegan). Drives the broadest constraint.
+  vegetarian / vegan / lowcarb). Drives the broadest constraint.
 - **allergies** — multi-select from a fixed list. Drives hard
   exclusions.
 - **dislikes** — free-text "fritekst" of foods / ingredients to
   avoid. Drives soft exclusions.
 
-Out of scope for v1: household size, max cook time, cuisine
-preference, weekly planning. These can be added later.
-
 ### Persistence
-Beyond the user profile, Mailtid stores two kinds of records:
+Beyond the user profile, Mailtid stores these records:
 
 - **Favourites** — short-form Meal Inspirations the user has
   bookmarked (heart icon). Surfaced on a separate "Favouritter" page.
 - **Cooked history** — a timestamped log of Meal Inspirations the
   user has marked as cooked. The LLM is told *"do not suggest meals
   the user cooked in the last 14 days"* on every request.
+- **Filter state** — the user's current in-season chip selections
+  (include/exclude) are persisted so they survive reloads.
+- **Cached meals** — the most recent batch of Meal Inspirations is
+  stored server-side so the home page renders instantly on the next
+  visit without an LLM round-trip.
 
-A "har lavet" button on each card appends a record. The cooked-history
-section of the prompt is built fresh per request from the last 14
-days of stamps.
-
-Out of scope for v1: a per-meal "aldrig igen" hard avoid list. The
-profile's `dislikes` field already covers ingredient-level exclusions.
+A "har lavet" button on each card appends a cooked-history record.
+The cooked-history section of the prompt is built fresh per request
+from the last 14 days of stamps.
 
 ### Configuration surfaces
 Configuration is split across two surfaces based on restart cost:
 
 - **Home Assistant add-on options** (container restart required):
-  - `opencode_api_key` — password field, the OpenCode Go API key
+  - `opencode_api_key` — password field, the OpenCode Go API key.
+    Can also be set via the in-app settings page (no restart).
   - `log_level` — `trace` / `debug` / `info` / `warn` / `error`
   - `port` — number, default 8210
   - `default_language` — select, default `da`
 - **In-app settings page** (live, no restart):
+  - OpenCode API key (overrides the HA add-on option when set)
   - Active model (dropdown populated from cached model list)
   - User profile (dietary pattern, allergies, dislikes)
+  - Pantry (basisvarer) — ingredients the user always has on hand
   - Custom mandatory ingredients history
   - Favourites / cooked history (these are data, not config, but
     live in the same surface)
@@ -215,16 +212,14 @@ pre-flight checks.
 No external registry, no remote image build, no `docker save/load`
 shuttling — for a single-household add-on, simplicity wins.
 
-### Filter semantics
-How the include and exclude filter sets combine when the user has
-selected multiple items:
+### Pantry (Basisvarer)
+Ingredients the user always has on hand (fx salt, olie, ris).
+Managed on the settings page. Pantry items are AND'ed into the LLM
+prompt alongside custom mandatory ingredients — every meal must
+contain every pantry staple. The user sets these once; they persist
+across sessions.
 
-- **In-season chips, multiple includes** — OR. Every meal must
-  contain at least one of the in-season ingredients the user has
-  flagged as include. The in-season list is "what's available"; the
-  user is narrowing the basket, not building a shopping list.
-- **Custom mandatory ingredients** — AND. They are hard constraints
-  ("I have rice, deal with it") and combine with AND against the
-  rest of the include set.
-- **Excludes** — AND of all excludes. A meal must exclude every
-  ingredient the user has flagged as exclude.
+### Filter semantics
+Per [ADR-0001](docs/adr/0001-filter-semantics.md): in-season
+includes combine with OR, custom mandatory and pantry ingredients
+combine with AND, excludes combine with AND across all items.
