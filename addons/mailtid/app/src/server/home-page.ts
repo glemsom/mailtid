@@ -71,11 +71,16 @@ export function renderHomePage(data: HomePageData): string {
     .join("");
 
   // Missing-API-key banner: shown when the key is not set.
+  // The user can set the key either in the HA add-on Configuration tab
+  // (Settings → Add-ons → Mailtid → Configuration) or on this in-app page.
   const missingKeyHtml = data.hasApiKey
     ? ""
     : `<div class="banner banner-warning" role="alert">
-  ⚠️ Indtast din OpenCode API-nøgle i indstillingerne.
-  <a href="/indstillinger">Gå til indstillinger</a>
+  ⚠️ <strong>OpenCode API-nøgle mangler.</strong><br>
+  Indtast din nøgle enten i HA's add-on-konfiguration
+  (Indstillinger → Add-ons → Mailtid → Konfiguration) og genstart,
+  eller indtast den her i web-UI'en (virker med det samme).
+  <br><a href="/indstillinger">Gå til indstillinger →</a>
 </div>`;
 
   // First-run banner: shown when the profile is empty.

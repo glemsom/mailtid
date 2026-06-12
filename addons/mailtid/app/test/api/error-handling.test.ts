@@ -45,8 +45,8 @@ describe("Error handling: missing API key", () => {
     const res = await app.request("http://localhost/");
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("OpenCode API-nøgle");
-    expect(html).toContain("i indstillingerne");
+    expect(html).toContain("OpenCode API-nøgle mangler");
+    expect(html).toContain("i HA's add-on-konfiguration");
   });
 
   test("GET / does not show missing-key message when api key is set", async () => {
