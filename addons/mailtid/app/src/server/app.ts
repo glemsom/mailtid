@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { SeasonalityRepository } from "../db/seasonality.js";
 import type { FilterStateRepository } from "../db/filter-state.js";
@@ -18,6 +19,7 @@ import { renderHomePage } from "./home-page.js";
 import { renderSettingsPage } from "./settings-page.js";
 import { renderFavouritesPage } from "./favourites-page.js";
 import { renderAdminPage } from "./admin-page.js";
+import { log } from "./logger.js";
 
 /**
  * Resolve the path to the bundled `static/` directory at build time.
@@ -34,6 +36,83 @@ const STATIC_TYPES: Record<string, string> = {
   ".js": "application/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
 };
+
+// --- Static asset cache (files read once at first request, served from memory thereafter) ---
+
+interface StaticEntry {
+  body: string;
+  contentType: string;
+}
+
+const staticCache = new Map<string, StaticEntry>();
+
+function getStaticAsset(name: string): StaticEntry | null {
+  const cached = staticCache.get(name);
+  if (cached) return cached;
+
+  const path = resolve(staticDir(), name);
+  if (!path.startsWith(staticDir())) return null;
+
+  let body: string;
+  try {
+    body = readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+  const ext = name.slice(name.lastIndexOf("."));
+  const contentType =
+    STATIC_TYPES[ext] ?? "application/octet-stream";
+  const entry: StaticEntry = { body, contentType };
+  staticCache.set(name, entry);
+  log.debug("static", `cached ${name} (${body.length} bytes)`);
+  return entry;
+}
+
+// --- Request body helpers ---
+
+interface ParseOk {
+  ok: true;
+  value: Record<string, unknown>;
+}
+
+interface ParseFail {
+  ok: false;
+  error: Response;
+}
+
+type ParseResult = ParseOk | ParseFail;
+
+/** Parse and validate a JSON request body. Returns the parsed object or a 400 Response. */
+async function requireJsonBody(c: Context): Promise<ParseResult> {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return {
+      ok: false,
+      error: c.json({ error: "request body must be JSON" }, 400),
+    };
+  }
+  if (!body || typeof body !== "object") {
+    return {
+      ok: false,
+      error: c.json({ error: "request body must be an object" }, 400),
+    };
+  }
+  return { ok: true, value: body as Record<string, unknown> };
+}
+
+/** Extract a required non-empty string field from a parsed JSON body. */
+function requireString(
+  body: Record<string, unknown>,
+  field: string,
+): { ok: true; value: string } | { ok: false } {
+  const raw = body[field];
+  if (typeof raw === "string" && raw.trim().length > 0) {
+    return { ok: true, value: raw.trim() };
+  }
+  return { ok: false };
+}
 
 /**
  * Dependencies the Hono app needs to serve the API. Injected so
@@ -157,20 +236,9 @@ export function createApp(deps: AppDeps): Hono {
     if (name.includes("/") || name.includes("..")) {
       return c.text("forbidden", 403);
     }
-    const path = resolve(staticDir(), name);
-    if (!path.startsWith(staticDir())) {
-      return c.text("forbidden", 403);
-    }
-    let body: string;
-    try {
-      body = readFileSync(path, "utf8");
-    } catch {
-      return c.text("not found", 404);
-    }
-    const ext = name.slice(name.lastIndexOf("."));
-    const contentType =
-      STATIC_TYPES[ext] ?? "application/octet-stream";
-    return c.body(body, 200, { "content-type": contentType });
+    const asset = getStaticAsset(name);
+    if (!asset) return c.text("not found", 404);
+    return c.body(asset.body, 200, { "content-type": asset.contentType });
   });
 
   /**
@@ -200,7 +268,7 @@ export function createApp(deps: AppDeps): Hono {
    */
   app.post("/api/inspiration", async (c) => {
     if (!deps.hasApiKey()) {
-      warnLog("inspiration", "OpenCode API key not set");
+      log.warn("inspiration", "OpenCode API key not set");
       return c.json({
         error: "Indtast din OpenCode API-nøgle i indstillingerne",
       }, 503);
@@ -220,7 +288,7 @@ export function createApp(deps: AppDeps): Hono {
         deps.cachedMeals.save(meals);
         await stream.writeSSE({ data: JSON.stringify({ meals }), event: "done" });
       } catch (err) {
-        logError("inspiration", err);
+        log.error("inspiration", err);
         await stream.writeSSE({ 
           data: JSON.stringify({ error: "Kunne ikke få forslag — prøv igen" }), 
           event: "error" 
@@ -237,37 +305,25 @@ export function createApp(deps: AppDeps): Hono {
    * and reasoning via SSE so the user gets real-time feedback.
    */
   app.post("/api/inspiration/recipe", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const meal = body as { title?: unknown; description?: unknown };
-    if (
-      typeof meal.title !== "string" ||
-      meal.title.length === 0 ||
-      typeof meal.description !== "string" ||
-      meal.description.length === 0
-    ) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
+
+    const title = requireString(body, "title");
+    const description = requireString(body, "description");
+    if (!title.ok || !description.ok) {
       return c.json(
         { error: "title and description must be non-empty strings" },
         400,
       );
     }
 
-    const title = meal.title as string;
-    const description = meal.description as string;
-
     return streamSSE(c, async (stream) => {
       try {
         const recipe = await deps.recipe.fullRecipe(
           {
-            title,
-            description,
+            title: title.value,
+            description: description.value,
           },
           {
             onStatus: (status) => {
@@ -280,7 +336,7 @@ export function createApp(deps: AppDeps): Hono {
         );
         await stream.writeSSE({ data: JSON.stringify(recipe), event: "done" });
       } catch (err) {
-        logError("recipe", err);
+        log.error("recipe", err);
         await stream.writeSSE({
           data: JSON.stringify({ error: "Kunne ikke hente opskrift — prøv igen" }),
           event: "error",
@@ -306,21 +362,14 @@ export function createApp(deps: AppDeps): Hono {
    * add of the same name returns the same shape with 201.
    */
   app.post("/api/custom-ingredients", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const raw = (body as { name?: unknown }).name;
-    if (typeof raw !== "string" || raw.trim().length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const name = requireString(parsed.value, "name");
+    if (!name.ok) {
       return c.json({ error: "name must be a non-empty string" }, 400);
     }
     try {
-      const stored = deps.customIngredients.add(raw);
+      const stored = deps.customIngredients.add(name.value);
       return c.json(stored, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
@@ -356,15 +405,9 @@ export function createApp(deps: AppDeps): Hono {
    * returns the same state.
    */
   app.put("/api/filter", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
     const obj = body as { includes?: unknown; excludes?: unknown };
     if (!isStringArray(obj.includes) || !isStringArray(obj.excludes)) {
       return c.json(
@@ -392,20 +435,13 @@ export function createApp(deps: AppDeps): Hono {
    * calls — no container restart required.
    */
   app.put("/api/settings/apikey", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { apiKey?: unknown };
-    if (typeof obj.apiKey !== "string") {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const apiKey = requireString(parsed.value, "apiKey");
+    if (!apiKey.ok) {
       return c.json({ error: "apiKey must be a string" }, 400);
     }
-    deps.settings.setApiKey(obj.apiKey);
+    deps.settings.setApiKey(apiKey.value);
     return c.json({ ok: true });
   });
 
@@ -414,20 +450,13 @@ export function createApp(deps: AppDeps): Hono {
    * Body: `{ "activeModel": "opencode-go/glm-5.1" }`.
    */
   app.put("/api/settings", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { activeModel?: unknown };
-    if (typeof obj.activeModel !== "string" || obj.activeModel.length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value as { activeModel?: unknown };
+    if (typeof body.activeModel !== "string" || body.activeModel.length === 0) {
       return c.json({ error: "activeModel must be a non-empty string" }, 400);
     }
-    deps.settings.setActiveModel(obj.activeModel);
+    deps.settings.setActiveModel(body.activeModel);
     return c.json({ ok: true });
   });
 
@@ -464,34 +493,27 @@ export function createApp(deps: AppDeps): Hono {
    * fixed option sets. Returns the saved profile.
    */
   app.put("/api/profile", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value as {
       dietaryPattern?: unknown;
       allergies?: unknown;
       dislikes?: unknown;
     };
-    if (typeof obj.dietaryPattern !== "string") {
+    if (typeof body.dietaryPattern !== "string") {
       return c.json({ error: "dietaryPattern must be a string" }, 400);
     }
-    if (!Array.isArray(obj.allergies)) {
+    if (!Array.isArray(body.allergies)) {
       return c.json({ error: "allergies must be an array" }, 400);
     }
-    if (typeof obj.dislikes !== "string") {
+    if (typeof body.dislikes !== "string") {
       return c.json({ error: "dislikes must be a string" }, 400);
     }
     try {
       const profile = deps.profile.save({
-        dietaryPattern: obj.dietaryPattern,
-        allergies: obj.allergies as string[],
-        dislikes: obj.dislikes,
+        dietaryPattern: body.dietaryPattern,
+        allergies: body.allergies as string[],
+        dislikes: body.dislikes,
       });
       return c.json({ profile });
     } catch (err) {
@@ -505,25 +527,20 @@ export function createApp(deps: AppDeps): Hono {
    * Idempotent — same title returns the existing row.
    */
   app.post("/api/favourites", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { title?: unknown; description?: unknown };
-    if (typeof obj.title !== "string" || obj.title.length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
+    const title = requireString(body, "title");
+    const description = requireString(body, "description");
+    if (!title.ok) {
       return c.json({ error: "title must be a non-empty string" }, 400);
     }
-    if (typeof obj.description !== "string" || obj.description.length === 0) {
+    if (!description.ok) {
       return c.json({ error: "description must be a non-empty string" }, 400);
     }
     const saved = deps.favourites.add({
-      title: obj.title,
-      description: obj.description,
+      title: title.value,
+      description: description.value,
     });
     return c.json(saved, 201);
   });
@@ -551,24 +568,19 @@ export function createApp(deps: AppDeps): Hono {
    */
   app.put("/api/admin/seasonality/:slug", async (c) => {
     const slug = decodeURIComponent(c.req.param("slug"));
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { nameDa?: unknown; months?: unknown };
-    if (typeof obj.nameDa !== "string" || obj.nameDa.trim().length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
+    const nameDa = requireString(body, "nameDa");
+    if (!nameDa.ok) {
       return c.json({ error: "nameDa must be a non-empty string" }, 400);
     }
-    if (!isMonthArray(obj.months)) {
+    const months = body.months;
+    if (!isMonthArray(months)) {
       return c.json({ error: "months must be an array of integers in 1-12" }, 400);
     }
-    deps.seasonality.upsert(slug, obj.nameDa.trim(), obj.months);
-    return c.json({ slug, nameDa: obj.nameDa.trim(), months: obj.months });
+    deps.seasonality.upsert(slug, nameDa.value, months);
+    return c.json({ slug, nameDa: nameDa.value, months });
   });
 
   /**
@@ -577,25 +589,20 @@ export function createApp(deps: AppDeps): Hono {
    * "months": [1,2,3] }`.
    */
   app.post("/api/admin/seasonality", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { nameDa?: unknown; months?: unknown };
-    if (typeof obj.nameDa !== "string" || obj.nameDa.trim().length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
+    const nameDa = requireString(body, "nameDa");
+    if (!nameDa.ok) {
       return c.json({ error: "nameDa must be a non-empty string" }, 400);
     }
-    if (!isMonthArray(obj.months)) {
+    const months = body.months;
+    if (!isMonthArray(months)) {
       return c.json({ error: "months must be an array of integers in 1-12" }, 400);
     }
-    const slug = sluggify(obj.nameDa.trim());
-    deps.seasonality.upsert(slug, obj.nameDa.trim(), obj.months);
-    return c.json({ slug, nameDa: obj.nameDa.trim(), months: obj.months }, 201);
+    const slug = sluggify(nameDa.value);
+    deps.seasonality.upsert(slug, nameDa.value, months);
+    return c.json({ slug, nameDa: nameDa.value, months }, 201);
   });
 
   /**
@@ -634,21 +641,14 @@ export function createApp(deps: AppDeps): Hono {
    * name returns the same shape with 201.
    */
   app.post("/api/pantry", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const raw = (body as { name?: unknown }).name;
-    if (typeof raw !== "string" || raw.trim().length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const name = requireString(parsed.value, "name");
+    if (!name.ok) {
       return c.json({ error: "name must be a non-empty string" }, 400);
     }
     try {
-      const stored = deps.pantry.add(raw);
+      const stored = deps.pantry.add(name.value);
       return c.json(stored, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
@@ -671,25 +671,20 @@ export function createApp(deps: AppDeps): Hono {
    * Always inserts a new row so the 14-day window tracks every cook.
    */
   app.post("/api/cooked", async (c) => {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "request body must be JSON" }, 400);
-    }
-    if (!body || typeof body !== "object") {
-      return c.json({ error: "request body must be an object" }, 400);
-    }
-    const obj = body as { title?: unknown; description?: unknown };
-    if (typeof obj.title !== "string" || obj.title.length === 0) {
+    const parsed = await requireJsonBody(c);
+    if (!parsed.ok) return parsed.error;
+    const body = parsed.value;
+    const title = requireString(body, "title");
+    const description = requireString(body, "description");
+    if (!title.ok) {
       return c.json({ error: "title must be a non-empty string" }, 400);
     }
-    if (typeof obj.description !== "string" || obj.description.length === 0) {
+    if (!description.ok) {
       return c.json({ error: "description must be a non-empty string" }, 400);
     }
     const stamped = deps.cookedHistory.stamp({
-      title: obj.title,
-      description: obj.description,
+      title: title.value,
+      description: description.value,
     });
     return c.json(stamped, 201);
   });
@@ -725,37 +720,6 @@ function sluggify(nameDa: string): string {
     .replace(/[^a-z0-9_]/g, "")
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
-}
-
-/**
- * Log an error or warning with the `mailtid:` prefix so log
- * messages are easy to find in the container output.
- */
-function warnLog(context: string, detail: string): void {
-  console.warn(`mailtid: ${context}: ${detail}`);
-}
-
-/**
- * Log a caught error from an HTTP handler. Writes to stderr
- * (`console.error`) with the full error name, message and stack
- * so the cause is visible in `docker run -it` output. The HTTP
- * response stays a friendly Danish message — this is purely for
- * the operator looking at the container logs.
- *
- * Defensive: handles non-Error throwables (strings, plain objects)
- * without crashing the request.
- */
-function logError(context: string, err: unknown): void {
-  if (err instanceof Error) {
-    const stack = err.stack ?? "(no stack)";
-    console.error(
-      `mailtid: ${context} failed: ${err.name}: ${err.message}\n${stack}`,
-    );
-  } else {
-    console.error(
-      `mailtid: ${context} failed: ${typeof err === "string" ? err : JSON.stringify(err)}`,
-    );
-  }
 }
 
 export type App = ReturnType<typeof createApp>;
