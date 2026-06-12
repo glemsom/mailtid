@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- Måltids-cache: de sidste 5 forslag gemmes i SQLite efter hver
+  "Vis 5 nye"-generering og server-renderes på næste sidevisning —
+  hjemmesiden viser forslag med det samme, ingen LLM-rundtur.
+  "Vis 5 nye" henter friske forslag og opdaterer cachen.
+- Ny `cached_meals`-tabel (single-row) + `CachedMealsRepository`.
+- `GET /`: læser cachen og sender måltidskort + JSON-data inline.
+- `POST /api/inspiration`: gemmer måltider i cachen efter streaming.
+- Klient-side `initCachedMeals()` læser indlejret JSON, fylder
+  `recipeCache` og forbinder knapper — ingen API-kald til opskrifter.
+
 ## 0.5.0
 
 - Dockerfile: skiftet fra Alpine til Debian (node:lts / node:lts-slim).

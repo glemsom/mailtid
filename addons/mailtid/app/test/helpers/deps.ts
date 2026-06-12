@@ -9,6 +9,7 @@ import { ProfileRepository } from "../../src/db/profile.js";
 import { SettingsRepository } from "../../src/db/settings.js";
 import { FavouritesRepository } from "../../src/db/favourites.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
+import { CachedMealsRepository } from "../../src/db/cached-meals.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
@@ -53,6 +54,7 @@ export function makeTestDeps(opts: {
   const settings = new SettingsRepository(db);
   const favourites = new FavouritesRepository(db);
   const cookedHistory = new CookedHistoryRepository(db);
+  const cachedMeals = new CachedMealsRepository(db);
   const llm = new MockLLMClient(opts.cannedResponse);
   const inspiration = new InspirationService(
     seasonality,
@@ -74,6 +76,7 @@ export function makeTestDeps(opts: {
       settings,
       favourites,
       cookedHistory,
+      cachedMeals,
       inspiration,
       recipe,
       monthProvider: () => opts.month,

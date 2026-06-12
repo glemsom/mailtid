@@ -20,6 +20,7 @@ import { ProfileRepository } from "./src/db/profile.js";
 import { SettingsRepository } from "./src/db/settings.js";
 import { FavouritesRepository } from "./src/db/favourites.js";
 import { CookedHistoryRepository } from "./src/db/cooked-history.js";
+import { CachedMealsRepository } from "./src/db/cached-meals.js";
 import { MockLLMClient } from "./src/llm/mock.js";
 import { InspirationService } from "./src/inspiration/service.js";
 import { RecipeService } from "./src/inspiration/recipe-service.js";
@@ -46,6 +47,7 @@ const profile = new ProfileRepository(db);
 const settings = new SettingsRepository(db);
 const favourites = new FavouritesRepository(db);
 const cookedHistory = new CookedHistoryRepository(db);
+const cachedMeals = new CachedMealsRepository(db);
 const llm = new MockLLMClient(CANNED);
 
 // Seed model cache with 3 models (simulating a refreshed catalogue)
@@ -69,7 +71,7 @@ const recipe = new RecipeService(seasonality, llm, () => 6, settings);
 
 const app = createApp({
   seasonality, filterState, customIngredients, profile,
-  settings, favourites, cookedHistory,
+  settings, favourites, cookedHistory, cachedMeals,
   hasApiKey: () => true,
   inspiration, recipe,
   monthProvider: () => 6,

@@ -11,6 +11,7 @@ import { ProfileRepository } from "../db/profile.js";
 import { SettingsRepository } from "../db/settings.js";
 import { FavouritesRepository } from "../db/favourites.js";
 import { CookedHistoryRepository } from "../db/cooked-history.js";
+import { CachedMealsRepository } from "../db/cached-meals.js";
 import { InspirationService } from "../inspiration/service.js";
 import { RecipeService } from "../inspiration/recipe-service.js";
 import { RealLLMClient } from "../llm/real.js";
@@ -71,6 +72,7 @@ export function buildAppDeps(
   const settings = new SettingsRepository(db);
   const favourites = new FavouritesRepository(db);
   const cookedHistory = new CookedHistoryRepository(db);
+  const cachedMeals = new CachedMealsRepository(db);
   const llm =
     options.llm ??
     new RealLLMClient(() => config.opencodeApiKey || settings.getApiKey());
@@ -92,6 +94,7 @@ export function buildAppDeps(
     settings,
     favourites,
     cookedHistory,
+    cachedMeals,
     hasApiKey: () =>
       config.opencodeApiKey.length > 0 || settings.getApiKey().length > 0,
     inspiration,

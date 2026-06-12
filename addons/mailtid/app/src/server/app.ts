@@ -11,6 +11,7 @@ import type { ProfileRepository } from "../db/profile.js";
 import type { SettingsRepository } from "../db/settings.js";
 import type { FavouritesRepository } from "../db/favourites.js";
 import type { CookedHistoryRepository } from "../db/cooked-history.js";
+import type { CachedMealsRepository } from "../db/cached-meals.js";
 import type { InspirationService } from "../inspiration/service.js";
 import type { RecipeService } from "../inspiration/recipe-service.js";
 import { renderHomePage } from "./home-page.js";
@@ -56,6 +57,8 @@ export interface AppDeps {
   favourites: FavouritesRepository;
   /** Read/write access to cooked history. */
   cookedHistory: CookedHistoryRepository;
+  /** Read/write access to the most recent cached meal batch. */
+  cachedMeals: CachedMealsRepository;
   /**
    * Whether the OpenCode API key is set (either via the HA add-on
    * options at startup or via the in-app settings page at runtime).
@@ -97,8 +100,9 @@ export function createApp(deps: AppDeps): Hono {
     const filter = deps.filterState.find();
     const custom = deps.customIngredients.list();
     const profile = deps.profile.find();
+    const cached = deps.cachedMeals.find();
     return c.html(
-      renderHomePage({ month, inSeason, filter, custom, profile, hasApiKey: deps.hasApiKey() }),
+      renderHomePage({ month, inSeason, filter, custom, profile, hasApiKey: deps.hasApiKey(), cachedMeals: cached?.meals }),
     );
   });
 
@@ -212,6 +216,8 @@ export function createApp(deps: AppDeps): Hono {
             stream.writeSSE({ data: token, event: "thinking" }).catch(() => {});
           },
         });
+        // Persist the batch so the next page load is snappy.
+        deps.cachedMeals.save(meals);
         await stream.writeSSE({ data: JSON.stringify({ meals }), event: "done" });
       } catch (err) {
         logError("inspiration", err);

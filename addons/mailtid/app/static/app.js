@@ -706,6 +706,98 @@ function init() {
   wireCustomForm();
   wireRefresh();
   wireThinkingDismiss();
+
+  // If the server rendered cached meals, populate the recipe cache
+  // and wire the action buttons so they work without a round-trip.
+  initCachedMeals();
+}
+
+/**
+ * Populate the recipe cache and wire action buttons for any
+ * server-rendered meal cards so the first paint is interactive.
+ */
+function initCachedMeals() {
+  const cached = window.__MAILTID_CACHED_MEALS__;
+  if (!cached || !Array.isArray(cached) || cached.length === 0) return;
+
+  // Populate recipeCache from the embedded data.
+  for (const meal of cached) {
+    if (meal.title) {
+      recipeCache[meal.title] = {
+        title: meal.title,
+        description: meal.description,
+        ingredients: meal.ingredients || [],
+        steps: meal.steps || [],
+        timeMinutes: meal.timeMinutes || 0,
+      };
+    }
+  }
+
+  const container = document.getElementById("meal-cards");
+  if (!container) return;
+
+  // Wire heart buttons.
+  for (const btn of container.querySelectorAll(".heart-btn")) {
+    btn.addEventListener("click", async () => {
+      const title = btn.getAttribute("data-favourite-title") || "";
+      const description = btn.getAttribute("data-favourite-desc") || "";
+      try {
+        const res = await fetch("/api/favourites", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        if (res.ok) {
+          btn.classList.add("hearted");
+          setStatus("Gemt som favorit!");
+        } else {
+          setStatus("Kunne ikke gemme favorit.");
+        }
+      } catch (err) {
+        setStatus("Kunne ikke gemme favorit.");
+      }
+    });
+  }
+
+  // Wire "Har lavet" buttons.
+  for (const btn of container.querySelectorAll(".cooked-btn")) {
+    btn.addEventListener("click", async () => {
+      const title = btn.getAttribute("data-cooked-title") || "";
+      const description = btn.getAttribute("data-cooked-desc") || "";
+      try {
+        const res = await fetch("/api/cooked", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        if (res.ok) {
+          btn.classList.add("cooked");
+          btn.textContent = "Lavet ✓";
+          setStatus("Markeret som lavet!");
+        } else {
+          setStatus("Kunne ikke markere som lavet.");
+        }
+      } catch (err) {
+        setStatus("Kunne ikke markere som lavet.");
+      }
+    });
+  }
+
+  // Wire recipe buttons — show cached recipe inline.
+  for (const btn of container.querySelectorAll(".recipe-btn")) {
+    btn.addEventListener("click", () => {
+      const title = btn.getAttribute("data-recipe-title") || "";
+      const recipe = recipeCache[title];
+      if (recipe) {
+        showRecipe(recipe);
+      } else {
+        setStatus("Opskrift ikke tilgængelig — prøv at hente nye forslag.");
+      }
+    });
+  }
+
+  // Show the summary line for the cached batch.
+  showSummary(cached.length);
 }
 
 /**

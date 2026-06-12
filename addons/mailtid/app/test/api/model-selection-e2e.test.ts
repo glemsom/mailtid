@@ -10,6 +10,7 @@ import { ProfileRepository } from "../../src/db/profile.js";
 import { SettingsRepository } from "../../src/db/settings.js";
 import { FavouritesRepository } from "../../src/db/favourites.js";
 import { CookedHistoryRepository } from "../../src/db/cooked-history.js";
+import { CachedMealsRepository } from "../../src/db/cached-meals.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
 import { InspirationService } from "../../src/inspiration/service.js";
 import { RecipeService } from "../../src/inspiration/recipe-service.js";
@@ -39,6 +40,7 @@ describe("Model selection end-to-end", () => {
     const settings = new SettingsRepository(db);
     const favourites = new FavouritesRepository(db);
     const cookedHistory = new CookedHistoryRepository(db);
+    const cachedMeals = new CachedMealsRepository(db);
     const llm = new MockLLMClient(CANNED);
     const inspiration = new InspirationService(
       seasonality, llm, () => 6,
@@ -56,6 +58,7 @@ describe("Model selection end-to-end", () => {
       settings,
       favourites,
       cookedHistory,
+      cachedMeals,
       hasApiKey: () => true,
       inspiration,
       recipe,
@@ -93,6 +96,7 @@ describe("Model selection end-to-end", () => {
 
     const settings = new SettingsRepository(db);
 
+    const cachedMeals2 = new CachedMealsRepository(db);
     const app = createApp({
       seasonality: new SeasonalityRepository(db),
       filterState: new FilterStateRepository(db),
@@ -102,6 +106,7 @@ describe("Model selection end-to-end", () => {
       settings,
       favourites: new FavouritesRepository(db),
       cookedHistory: new CookedHistoryRepository(db),
+      cachedMeals: cachedMeals2,
       hasApiKey: () => true,
       inspiration: new InspirationService(
         new SeasonalityRepository(db),

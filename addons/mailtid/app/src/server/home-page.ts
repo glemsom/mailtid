@@ -2,6 +2,7 @@ import type { SeasonalityIngredient } from "../db/seasonality.js";
 import type { FilterState } from "../db/filter-state.js";
 import type { CustomIngredient } from "../db/custom-ingredients.js";
 import type { UserProfile } from "../db/profile.js";
+import type { MealInspiration } from "../inspiration/service.js";
 import { escapeHtml, danishMonthName } from "./html.js";
 
 /** Dietary pattern display names in Danish. */
@@ -29,6 +30,8 @@ export interface HomePageData {
   profile: UserProfile | null;
   /** Whether the OpenCode API key is configured. */
   hasApiKey: boolean;
+  /** Cached meal batch from the most recent generation, if any. */
+  cachedMeals?: readonly MealInspiration[];
 }
 
 /**
@@ -96,6 +99,17 @@ export function renderHomePage(data: HomePageData): string {
     ? DIETARY_LABELS[data.profile.dietaryPattern] ?? ""
     : "";
 
+  // Render cached meals as HTML cards so the first paint is snappy.
+  const cachedMealsHtml = data.cachedMeals && data.cachedMeals.length > 0
+    ? data.cachedMeals.map((m) => renderMealCard(m)).join("")
+    : "";
+
+  // Embed the full meal data so the client-side JS can populate
+  // the recipeCache and wire the action buttons without a round-trip.
+  const cachedMealsJson = data.cachedMeals && data.cachedMeals.length > 0
+    ? `<script>window.__MAILTID_CACHED_MEALS__ = ${JSON.stringify(data.cachedMeals)};</script>`
+    : "";
+
   return `<!doctype html>
 <html lang="da">
 <head>
@@ -145,12 +159,38 @@ export function renderHomePage(data: HomePageData): string {
           <div id="thinking-tokens" class="thinking-tokens"></div>
         </details>
       </div>
-      <div id="meal-cards"></div>
+      <div id="meal-cards">${cachedMealsHtml}</div>
     </div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
   </section>
-
+  ${cachedMealsJson}
   <script src="/static/app.js"></script>
 </body>
 </html>`;
+}
+
+/**
+ * Render a single cached MealInspiration as a server-side HTML card.
+ * Must stay in lockstep with the `renderMeals()` template in
+ * `static/app.js` so the CSS and JS button-wiring selectors match.
+ */
+function renderMealCard(m: MealInspiration): string {
+  return (
+    `<article class="meal">` +
+    `<div class="meal-header">` +
+    `<h3>${escapeHtml(m.title)}</h3>` +
+    `<button class="heart-btn" data-favourite-title="${escapeHtml(m.title)}"` +
+    ` data-favourite-desc="${escapeHtml(m.description)}"` +
+    ` aria-label="Gem som favorit" title="Gem som favorit">♥</button>` +
+    `</div>` +
+    `<p>${escapeHtml(m.description)}</p>` +
+    `<div class="meal-actions">` +
+    `<button class="cooked-btn" data-cooked-title="${escapeHtml(m.title)}"` +
+    ` data-cooked-desc="${escapeHtml(m.description)}">` +
+    `Har lavet</button>` +
+    `<button class="recipe-btn" data-recipe-title="${escapeHtml(m.title)}">` +
+    `Se opskrift</button>` +
+    `</div>` +
+    `</article>`
+  );
 }

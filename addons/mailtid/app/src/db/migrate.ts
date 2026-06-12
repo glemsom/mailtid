@@ -89,4 +89,11 @@ export function runMigrations(db: Database.Database): void {
       created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cached_meals (
+      id         INTEGER PRIMARY KEY CHECK (id = 1),
+      meals_json TEXT    NOT NULL DEFAULT '[]',
+      saved_at   INTEGER NOT NULL DEFAULT 0
+    );
+  `);
 }
