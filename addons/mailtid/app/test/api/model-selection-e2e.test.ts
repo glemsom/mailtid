@@ -49,7 +49,7 @@ describe("Model selection end-to-end", () => {
       { filterState, customIngredients, pantry },
       profile, cookedHistory,
     );
-    const recipe = new RecipeService(seasonality, llm, () => 6, settings);
+    const recipe = new RecipeService(seasonality, orchestrator, () => 6);
 
     const app = createApp({
       seasonality,
@@ -117,7 +117,7 @@ describe("Model selection end-to-end", () => {
       ),
       recipe: new RecipeService(
         new SeasonalityRepository(db),
-        new MockLLMClient(CANNED), () => 6, settings,
+        new LLMOrchestrator(new MockLLMClient(CANNED), settings), () => 6,
       ),
       monthProvider: () => 6,
     });

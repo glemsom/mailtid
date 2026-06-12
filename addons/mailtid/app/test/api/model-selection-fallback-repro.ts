@@ -69,7 +69,7 @@ const inspiration = new InspirationService(
   { filterState, customIngredients },
   profile, cookedHistory,
 );
-const recipe = new RecipeService(seasonality, llm, () => 6, settings);
+const recipe = new RecipeService(seasonality, orchestrator, () => 6);
 
 const app = createApp({
   seasonality, filterState, customIngredients, profile,

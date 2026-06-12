@@ -5,6 +5,7 @@ import { importSeasonalitySeed } from "../../src/db/seed.js";
 import { SeasonalityRepository } from "../../src/db/seasonality.js";
 import { SettingsRepository } from "../../src/db/settings.js";
 import { MockLLMClient } from "../../src/llm/mock.js";
+import { LLMOrchestrator } from "../../src/llm/orchestrator.js";
 import {
   RecipeService,
   parseRecipeResponse,
@@ -26,7 +27,8 @@ function makeService(opts: {
     settings.setActiveModel(opts.activeModel);
   }
   const llm = new MockLLMClient(opts.cannedResponse);
-  const service = new RecipeService(repo, llm, () => opts.month, settings);
+  const orchestrator = new LLMOrchestrator(llm, settings);
+  const service = new RecipeService(repo, orchestrator, () => opts.month);
   return { service, llm, settings };
 }
 

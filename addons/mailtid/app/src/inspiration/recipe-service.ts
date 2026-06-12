@@ -1,6 +1,5 @@
 import type { SeasonalityIngredient, SeasonalityRepository } from "../db/seasonality.js";
-import type { SettingsRepository } from "../db/settings.js";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMOrchestrator } from "../llm/orchestrator.js";
 import { buildRecipePrompt } from "../llm/recipe-prompt.js";
 import { extractJsonObject } from "../llm/response.js";
 
@@ -140,17 +139,9 @@ function validateStep(value: unknown, index: number): string {
 export class RecipeService {
   constructor(
     private readonly seasonality: SeasonalityRepository,
-    private readonly llm: LLMClient,
+    private readonly orchestrator: LLMOrchestrator,
     /** Provides the "current" month (1-12) for the request. */
     private readonly monthProvider: () => number,
-    /**
-     * Source of the user's active model. When provided, the
-     * selected model is threaded through to the LLM call so the
-     * recipe call uses the same model the home-screen call does.
-     * When omitted (tests, or callers that don't care), the
-     * LLMClient falls back to its own default.
-     */
-    private readonly settingsRepo?: SettingsRepository,
   ) {}
 
   /**
@@ -174,31 +165,10 @@ export class RecipeService {
     const inSeason: SeasonalityIngredient[] =
       this.seasonality.findInSeasonForMonth(month);
     const prompt = buildRecipePrompt(meal, inSeason);
-    const activeModel = this.resolveActiveModel();
     opts?.onStatus?.("AI tænker over opskriften...");
-    const raw = await this.llm.stream(
-      prompt,
-      activeModel
-        ? { model: activeModel, onReasoning: opts?.onReasoning }
-        : { onReasoning: opts?.onReasoning },
-    );
-    return parseRecipeResponse(raw);
+    return this.orchestrator.call(prompt, parseRecipeResponse, {
+      onReasoning: opts?.onReasoning,
+    });
   }
 
-  /**
-   * Resolve the active model for an LLM call. Ordered fallback:
-   * 1. The user's explicitly saved model (from settings page).
-   * 2. The first free model in the cached model list.
-   * 3. Any cached model (if no free models exist).
-   * 4. `undefined` — lets the LLMClient pick its own hardcoded default.
-   */
-  private resolveActiveModel(): string | undefined {
-    const active = this.settingsRepo?.getActiveModel();
-    if (active) return active;
-
-    const allModels = this.settingsRepo?.listModels();
-    if (!allModels || allModels.length === 0) return undefined;
-    const freeModel = allModels.find((m) => m.tier === "free");
-    return freeModel?.modelId ?? allModels[0]?.modelId;
-  }
 }
